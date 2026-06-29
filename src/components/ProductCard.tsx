@@ -1,14 +1,15 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Product } from '../types';
-import { Eye, Flame, Calendar, Sparkles, MessageCircle, Info, Images } from 'lucide-react';
+import { Eye, Flame, Calendar, Sparkles, MessageCircle, Images, ShoppingCart } from 'lucide-react';
 
 interface ProductCardProps {
   product: Product;
   onSelect: (product: Product) => void;
-  onOrder: (product: Product) => void;
+  onAddToCart: (product: Product, quantity: number) => void;
 }
 
-export const ProductCard: React.FC<ProductCardProps> = ({ product, onSelect, onOrder }) => {
+export const ProductCard: React.FC<ProductCardProps> = ({ product, onSelect, onAddToCart }) => {
+  const [cardQuantity, setCardQuantity] = useState(1);
   const getStatusBadge = () => {
     switch (product.status) {
       case 'Nuevo':
@@ -133,20 +134,50 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onSelect, onO
           </div>
  
           <div className="grid grid-cols-2 gap-2">
+            {/* Quantity Selector replaces "Ver más" */}
+            <div className="flex items-center justify-between border border-slate-200 rounded-lg bg-slate-50 overflow-hidden h-9">
+              <button
+                type="button"
+                id={`btn-card-decrement-${product.id}`}
+                disabled={cardQuantity <= 1 || isOutOfStock}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setCardQuantity(prev => Math.max(1, prev - 1));
+                }}
+                className="px-2.5 h-full bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-700 font-extrabold transition-all disabled:opacity-50 select-none text-sm"
+              >
+                -
+              </button>
+              <span className="font-mono text-xs font-bold text-slate-900 w-8 text-center select-none">
+                {cardQuantity}
+              </span>
+              <button
+                type="button"
+                id={`btn-card-increment-${product.id}`}
+                disabled={isOutOfStock}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setCardQuantity(prev => prev + 1);
+                }}
+                className="px-2.5 h-full bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-700 font-extrabold transition-all disabled:opacity-50 select-none text-sm"
+              >
+                +
+              </button>
+            </div>
+
+            {/* "+ Carrito" button replaces "Pedir" */}
             <button 
-              id={`btn-details-${product.id}`}
-              onClick={() => onSelect(product)}
-              className="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold py-2 px-3 rounded-lg border border-slate-200 transition-colors flex items-center justify-center gap-1"
+              id={`btn-add-cart-${product.id}`}
+              disabled={isOutOfStock}
+              onClick={(e) => {
+                e.stopPropagation();
+                onAddToCart(product, cardQuantity);
+                setCardQuantity(1);
+              }}
+              className="w-full bg-emerald-500 hover:bg-emerald-400 active:scale-[0.98] disabled:bg-slate-200 disabled:text-slate-400 text-slate-950 text-xs font-black py-2 px-2.5 rounded-lg transition-all flex items-center justify-center gap-1.5 shadow-xs font-mono tracking-wide"
             >
-              <Info className="w-3.5 h-3.5" />
-              Ver más
-            </button>
-            <button 
-              id={`btn-order-${product.id}`}
-              onClick={() => onOrder(product)}
-              className="w-full bg-emerald-500 hover:bg-emerald-450 text-slate-950 text-xs font-black py-2 px-3 rounded-lg transition-all flex items-center justify-center gap-1 shadow-xs font-mono tracking-wide"
-            >
-              {product.status === 'Importación próxima' ? 'Reservar' : 'Pedir'}
+              <ShoppingCart className="w-3.5 h-3.5" />
+              {product.status === 'Importación próxima' ? 'Reservar' : '+ Carrito'}
             </button>
           </div>
         </div>

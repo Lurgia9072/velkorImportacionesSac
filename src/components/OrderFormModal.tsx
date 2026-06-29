@@ -4,13 +4,12 @@ import { X, CheckCircle, Send, Phone, MapPin, User, Hash, MessageCircle } from '
 import { createOrder } from '../firebase';
 
 interface OrderFormModalProps {
-  product: Product;
-  quantity: number;
+  cartItems: { product: Product; quantity: number }[];
   onClose: () => void;
   onSuccess: () => void;
 }
 
-export const OrderFormModal: React.FC<OrderFormModalProps> = ({ product, quantity, onClose, onSuccess }) => {
+export const OrderFormModal: React.FC<OrderFormModalProps> = ({ cartItems, onClose, onSuccess }) => {
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
   const [deliveryAddress, setDeliveryAddress] = useState('');
@@ -18,10 +17,14 @@ export const OrderFormModal: React.FC<OrderFormModalProps> = ({ product, quantit
   const [requestType, setRequestType] = useState<Order['requestType']>('Compra directa');
   const [paymentMethod, setPaymentMethod] = useState<Order['paymentMethod']>('20% adelanto / 80% entrega');
   const [whatsappNumber, setWhatsappNumber] = useState('+51970329450'); // Default Peruvian number placeholder, editable for testing
-  const [orderQuantity, setOrderQuantity] = useState(quantity || 1);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+
+  const totalAmount = cartItems.reduce((acc, item) => {
+    const itemPrice = item.product.showPrice ? item.product.price : 0;
+    return acc + itemPrice * item.quantity;
+  }, 0);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,28 +33,39 @@ export const OrderFormModal: React.FC<OrderFormModalProps> = ({ product, quantit
       return;
     }
 
+    if (cartItems.length === 0) {
+      alert('El carrito está vacío.');
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
-      // 1. Save order to Firestore
-      const newOrder: Omit<Order, 'id'> = {
-        customerName,
-        customerPhone,
-        deliveryAddress,
-        region,
-        productId: product.id || '',
-        productName: product.name,
-        productPrice: product.showPrice ? product.price : 0,
-        quantity: orderQuantity,
-        requestType,
-        paymentMethod,
-        status: 'En seguimiento', // Initial state requested: "En seguimiento", "Venta cerrada", "No compró"
-        createdAt: new Date().toISOString()
-      };
+      // 1. Save each item as a separate order in Firestore
+      for (const item of cartItems) {
+        const newOrder: Omit<Order, 'id'> = {
+          customerName,
+          customerPhone,
+          deliveryAddress,
+          region,
+          productId: item.product.id || '',
+          productName: item.product.name,
+          productPrice: item.product.showPrice ? item.product.price : 0,
+          quantity: item.quantity,
+          requestType,
+          paymentMethod,
+          status: 'En seguimiento', // Initial status
+          createdAt: new Date().toISOString()
+        };
+        await createOrder(newOrder);
+      }
 
-      await createOrder(newOrder);
+      // 2. Format a single clean WhatsApp message listing all products
+      let itemsText = '';
+      cartItems.forEach((item, idx) => {
+        itemsText += `${idx + 1}. *${item.product.name}*\n   Cantidad: ${item.quantity} und.\n\n`;
+      });
 
-      // 2. Generate WhatsApp formatted message
       const formattedMessage = `Nuevo pedido Velkor Importaciones:
 
 Nombre: ${customerName}
@@ -59,27 +73,33 @@ Celular: ${customerPhone}
 Región: ${region}
 Dirección: ${deliveryAddress}
 
-Producto: ${product.name}
-Cantidad: ${orderQuantity} und.
-
-Tipo: ${requestType}
-Pago: ${paymentMethod}`;
+PRODUCTOS DEL PEDIDO:
+${itemsText}Tipo de Solicitud: ${requestType}
+Método de Pago Preferido: ${paymentMethod}`;
 
       // 3. Format WhatsApp phone and open link
-      // Standardize Peruvian format (remove non-digits, prepend 51 if it is 9 digits)
       const cleanPhone = whatsappNumber.replace(/\D/g, '');
       const waPhone = cleanPhone.length === 9 ? `51${cleanPhone}` : cleanPhone;
-      
       const whatsappUrl = `https://api.whatsapp.com/send?phone=${waPhone}&text=${encodeURIComponent(formattedMessage)}`;
       
-      // Save order record to local storage to show in "Mis Pedidos" client history
+      // 4. Save order records to local storage to show in "Mis Pedidos" client history
       const localOrders = JSON.parse(localStorage.getItem('velkor_local_orders') || '[]');
-      localOrders.push({
-        productName: product.name,
-        quantity: orderQuantity,
-        status: 'En seguimiento',
-        createdAt: new Date().toISOString()
-      });
+      for (const item of cartItems) {
+        localOrders.push({
+          productId: item.product.id || '',
+          productName: item.product.name,
+          productPrice: item.product.showPrice ? item.product.price : 0,
+          showPrice: item.product.showPrice,
+          category: item.product.category,
+          imageUrl: item.product.imageUrl,
+          imageUrls: item.product.imageUrls || [],
+          quantity: item.quantity,
+          requestType: requestType,
+          paymentMethod: paymentMethod,
+          status: 'En seguimiento',
+          createdAt: new Date().toISOString()
+        });
+      }
       localStorage.setItem('velkor_local_orders', JSON.stringify(localOrders));
 
       setIsSubmitting(false);
@@ -130,62 +150,42 @@ Pago: ${paymentMethod}`;
             </p>
           </div>
         ) : (
-          <form onSubmit={handleSubmit} className="overflow-y-auto flex-1 p-6 md:p-8">
+          <form onSubmit={handleSubmit} className="overflow-y-auto flex-1 p-6 md:p-8 flex flex-col">
             <h3 className="text-lg md:text-xl font-display font-black text-slate-900 border-b border-slate-100 pb-3 flex items-center gap-2">
               <Phone className="w-5 h-5 text-emerald-600" />
-              Confirmar Pedido de Repuesto
+              Confirmar Pedido de Repuestos
             </h3>
  
-            {/* Selected Product Summary Card */}
-            <div className="my-4 p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center gap-3">
-              <img 
-                src={product.imageUrl} 
-                alt={product.name} 
-                referrerPolicy="no-referrer"
-                className="w-12 h-12 object-cover rounded-lg border border-slate-200"
-              />
-              <div className="flex-1">
-                <h4 className="text-slate-900 text-xs font-bold font-display line-clamp-1">{product.name}</h4>
-                <p className="text-slate-500 text-[11px] font-mono mt-0.5">
-                  Precio Unitario: <span className="font-bold text-slate-950">{product.showPrice ? `S/ ${product.price.toFixed(2)}` : 'A consultar'}</span>
-                </p>
+            {/* Scrollable Cart Summary */}
+            <div className="my-4 bg-slate-50 border border-slate-200 rounded-xl p-3 max-h-[160px] overflow-y-auto space-y-2">
+              <p className="text-[10px] font-mono uppercase text-slate-400 font-bold tracking-wider border-b border-slate-200/60 pb-1">
+                Resumen de tu Carrito ({cartItems.length} ítems)
+              </p>
+              {cartItems.map((item, idx) => (
+                <div key={idx} className="flex items-center gap-2.5 bg-white p-2 rounded-lg border border-slate-100 shadow-3xs">
+                  <img 
+                    src={item.product.imageUrl} 
+                    alt={item.product.name} 
+                    referrerPolicy="no-referrer"
+                    className="w-10 h-10 object-cover rounded-md border border-slate-200 shrink-0"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <h4 className="text-slate-900 text-xs font-bold font-display truncate">{item.product.name}</h4>
+                    <p className="text-slate-500 text-[10px] font-mono">
+                      Cantidad: {item.quantity} und.
+                    </p>
+                  </div>
+                </div>
+              ))}
+              <div className="border-t border-slate-200/80 pt-2 flex justify-between items-center text-xs font-bold font-mono">
+                <span className="text-slate-500 uppercase text-[10px]">Total de Repuestos:</span>
+                <span className="text-emerald-600 text-sm">
+                  {cartItems.reduce((sum, item) => sum + item.quantity, 0)} und.
+                </span>
               </div>
             </div>
  
-            <div className="space-y-4">
-              {/* Cantidad Interesada */}
-              <div>
-                <label className="block text-[11px] font-mono uppercase tracking-wider text-slate-500 mb-1.5 flex items-center gap-1 font-bold">
-                  Cantidad Solicitada *
-                </label>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setOrderQuantity(prev => Math.max(1, prev - 1))}
-                    className="w-9 h-9 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-lg flex items-center justify-center font-bold text-slate-700 transition-colors select-none"
-                  >
-                    -
-                  </button>
-                  <input 
-                    id="input-order-quantity"
-                    type="number"
-                    min="1"
-                    required
-                    value={orderQuantity}
-                    onChange={e => setOrderQuantity(Math.max(1, parseInt(e.target.value) || 1))}
-                    className="w-16 bg-slate-50 border border-slate-200 focus:border-emerald-500 rounded-lg py-1.5 text-center text-xs font-bold focus:outline-hidden transition-colors text-slate-900 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setOrderQuantity(prev => prev + 1)}
-                    className="w-9 h-9 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-lg flex items-center justify-center font-bold text-slate-700 transition-colors select-none"
-                  >
-                    +
-                  </button>
-                  <span className="text-[11px] text-slate-400 font-mono ml-1">unidades de este repuesto.</span>
-                </div>
-              </div>
-
+            <div className="space-y-4 flex-1">
               {/* Customer Name */}
               <div>
                 <label className="block text-[11px] font-mono uppercase tracking-wider text-slate-500 mb-1 flex items-center gap-1">
@@ -322,8 +322,7 @@ Pago: ${paymentMethod}`;
                 <input 
                   id="input-whatsapp-target"
                   type="text"
-                  disabled={true}
-                  placeholder="Ej: +51970329450"
+                  placeholder="Ej: 999999999"
                   value={whatsappNumber}
                   onChange={e => setWhatsappNumber(e.target.value)}
                   className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 rounded-lg px-3 py-1.5 text-xs font-mono focus:outline-hidden transition-colors text-slate-700"
@@ -335,7 +334,7 @@ Pago: ${paymentMethod}`;
             </div>
  
             {/* Actions */}
-            <div className="mt-6 pt-4 border-t border-slate-100 flex gap-3">
+            <div className="mt-6 pt-4 border-t border-slate-100 flex gap-3 shrink-0">
               <button
                 id="btn-cancel-order"
                 type="button"

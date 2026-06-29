@@ -202,7 +202,7 @@ export const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({ produc
                     className="flex-1 bg-emerald-500 hover:bg-emerald-450 text-slate-950 font-display font-black py-3.5 px-6 rounded-xl transition-all duration-300 flex items-center justify-center gap-2 shadow-lg"
                   >
                     <ShoppingBag className="w-5 h-5" />
-                    {product.status === 'Importación próxima' ? 'Reservar e Importar' : 'Iniciar Pedido de WhatsApp'}
+                    {product.status === 'Importación próxima' ? 'Reservar en Carrito' : 'Agregar al Carrito'}
                   </button>
                 </div>
               </div>

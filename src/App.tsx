@@ -21,12 +21,20 @@ import {
   Flame,
   Calendar,
   Grid,
-  ClipboardList
+  ClipboardList,
+  ShoppingCart,
+  Trash,
+  X
 } from 'lucide-react';
+
+interface CartItem {
+  product: Product;
+  quantity: number;
+}
 
 export default function App() {
   // Navigation: 'catalog' | 'history' | 'admin'
-  const [activeView, setActiveView] = useState<'catalog' | 'history' | 'admin'>('catalog') as any;
+  const [activeView, setActiveView] = useState<'catalog' | 'history' | 'admin'>('catalog');
 
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -41,6 +49,40 @@ export default function App() {
 
   // Client local orders history loaded from localStorage
   const [localHistory, setLocalHistory] = useState<any[]>([]);
+
+  // Shopping Cart States
+  const [isCartOpen, setIsCartOpen] = useState(false);
+  const [isCartCheckoutOpen, setIsCartCheckoutOpen] = useState(false);
+  const [cart, setCart] = useState<CartItem[]>(() => {
+    try {
+      return JSON.parse(localStorage.getItem('velkor_shopping_cart') || '[]');
+    } catch {
+      return [];
+    }
+  });
+
+  // Sync effect for shopping cart
+  useEffect(() => {
+    localStorage.setItem('velkor_shopping_cart', JSON.stringify(cart));
+  }, [cart]);
+
+  const handleAddToCart = (product: Product, quantity: number) => {
+    setCart(prev => {
+      const existingIdx = prev.findIndex(item => item.product.id === product.id);
+      if (existingIdx !== -1) {
+        const updated = [...prev];
+        updated[existingIdx] = {
+          ...updated[existingIdx],
+          quantity: updated[existingIdx].quantity + quantity
+        };
+        return updated;
+      } else {
+        return [...prev, { product, quantity }];
+      }
+    });
+    setIsCartOpen(true);
+    setSelectedProductDetails(null); // Close details modal if open
+  };
 
   // Path & Hash based SPA routing for custom link /admin support
   useEffect(() => {
@@ -174,9 +216,8 @@ export default function App() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           {/* Logo & Corporate Title */}
           <div className="flex items-center gap-3 cursor-pointer" onClick={() => handleNavigate('catalog')}>
-            <div className="w-10 h-10 rounded-xl flex items-center justify-center text-slate-950 font-extrabold shadow-md shadow-emerald-500/20">
-              {/* <Wrench className="w-5 h-5 text-slate-950 animate-spin-slow" style={{ animationDuration: '6s' }} /> */}
-              <img src="/assets/images/logo.jpeg" alt="" />
+            <div className="w-10 h-10 bg-emerald-500 rounded-xl flex items-center justify-center text-slate-950 font-extrabold shadow-md shadow-emerald-500/20">
+              <Wrench className="w-5 h-5 text-slate-950 animate-spin-slow" style={{ animationDuration: '6s' }} />
             </div>
             <div>
               <h1 className="text-lg font-display font-black tracking-tight leading-none flex items-center gap-1">
@@ -188,25 +229,36 @@ export default function App() {
             </div>
           </div>
 
-          {/* Desktop Navigation Link Toggles */}
-          <nav className="hidden md:flex items-center bg-slate-100 border border-slate-200 rounded-lg p-1 text-sm font-mono font-bold">
-            <button 
-              id="nav-catalog-desktop"
-              onClick={() => handleNavigate('catalog')}
-              className={`px-4 py-2 rounded-md transition-all flex items-center gap-1.5 ${activeView === 'catalog' ? 'bg-emerald-500 text-slate-950' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'}`}
+          {/* Desktop Navigation Link Toggles & Shopping Cart */}
+          <div className="hidden md:flex items-center gap-4">
+            <nav className="flex items-center bg-slate-100 border border-slate-200 rounded-lg p-1 text-sm font-mono font-bold">
+              <button 
+                id="nav-catalog-desktop"
+                onClick={() => handleNavigate('catalog')}
+                className={`px-4 py-2 rounded-md transition-all flex items-center gap-1.5 ${activeView === 'catalog' ? 'bg-emerald-500 text-slate-950' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'}`}
+              >
+                <BookOpen className="w-4 h-4" />
+                Catálogo de Repuestos
+              </button>
+              <button 
+                id="nav-history-desktop"
+                onClick={() => { handleNavigate('history'); refreshLocalHistory(); }}
+                className={`px-4 py-2 rounded-md transition-all flex items-center gap-1.5 ${activeView === 'history' ? 'bg-emerald-500 text-slate-950' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'}`}
+              >
+                <ClipboardList className="w-4 h-4" />
+                Mis Pedidos
+              </button>
+            </nav>
+
+            <button
+              id="btn-cart-desktop"
+              onClick={() => setIsCartOpen(true)}
+              className="relative bg-slate-900 hover:bg-slate-800 text-white font-mono font-bold text-xs px-4 py-2.5 rounded-xl border border-slate-800 flex items-center gap-2 transition-all cursor-pointer"
             >
-              <BookOpen className="w-4 h-4" />
-              Catálogo de Repuestos
+              <ShoppingCart className="w-4 h-4 text-emerald-400" />
+              <span>Mi Carrito ({cart.reduce((sum, item) => sum + item.quantity, 0)})</span>
             </button>
-            <button 
-              id="nav-history-desktop"
-              onClick={() => { handleNavigate('history'); refreshLocalHistory(); }}
-              className={`px-4 py-2 rounded-md transition-all flex items-center gap-1.5 ${activeView === 'history' ? 'bg-emerald-500 text-slate-950' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'}`}
-            >
-              <ClipboardList className="w-4 h-4" />
-              Mis Pedidos
-            </button>
-          </nav>
+          </div>
         </div>
       </header>
 
@@ -382,7 +434,7 @@ export default function App() {
                     key={p.id} 
                     product={p} 
                     onSelect={handleSelectProduct} 
-                    onOrder={handleOrderProduct} 
+                    onAddToCart={handleAddToCart} 
                   />
                 ))}
               </div>
@@ -408,22 +460,89 @@ export default function App() {
                 </div>
               ) : (
                 <div className="mt-6 space-y-3">
-                  {localHistory.map((h, idx) => (
-                    <div key={idx} className="p-4 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between gap-4">
-                      <div>
-                        <h4 className="font-bold text-slate-900 text-sm">{h.productName}</h4>
-                        <p className="text-slate-500 text-[11px] font-mono mt-1">
-                          Cantidad: <span className="font-bold text-slate-800">{h.quantity} und.</span>
-                          {h.createdAt && ` | Fecha: ${new Date(h.createdAt).toLocaleDateString('es-PE')}`}
-                        </p>
-                      </div>
+                  {localHistory.map((h, idx) => {
+                    const matchedProduct = products.find(p => p.id === h.productId || p.name === h.productName);
+                    const displayImage = h.imageUrl || matchedProduct?.imageUrl;
+                    const displayCategory = h.category || matchedProduct?.category;
+                    const displayPrice = h.productPrice !== undefined ? h.productPrice : (matchedProduct?.showPrice ? matchedProduct.price : undefined);
+                    const hasPrice = h.productPrice !== undefined ? (h.productPrice > 0) : (matchedProduct?.showPrice);
+                    
+                    const fallbackProduct: Product = {
+                      id: h.productId || '',
+                      name: h.productName,
+                      price: displayPrice || 0,
+                      showPrice: hasPrice ?? true,
+                      category: displayCategory || 'Accesorios',
+                      status: 'Catálogo general',
+                      description: `Detalle histórico del repuesto solicitado el ${h.createdAt ? new Date(h.createdAt).toLocaleDateString('es-PE') : 'recientemente'}. Solicitud: ${h.requestType || 'Compra directa'}. Método de Pago: ${h.paymentMethod || 'Acordar con administrador'}.`,
+                      imageUrl: displayImage || '',
+                      imageUrls: h.imageUrls || (displayImage ? [displayImage] : [])
+                    };
 
-                      <span className="inline-flex items-center gap-1 text-emerald-600 font-bold text-xs bg-emerald-50 border border-emerald-100 px-2.5 py-1 rounded-md">
-                        <CheckCircle className="w-3.5 h-3.5 text-emerald-500" />
-                        Registrado
-                      </span>
-                    </div>
-                  ))}
+                    return (
+                      <div 
+                        key={idx} 
+                        onClick={() => handleSelectProduct(matchedProduct || fallbackProduct)}
+                        className="p-4 bg-slate-50 border border-slate-200 rounded-xl flex flex-col md:flex-row md:items-center justify-between gap-4 transition-all hover:border-emerald-400 hover:bg-slate-100/60 cursor-pointer active:scale-[0.995]"
+                      >
+                        <div className="flex items-start gap-3">
+                          {displayImage ? (
+                            <img 
+                              src={displayImage} 
+                              alt={h.productName} 
+                              className="w-16 h-16 object-cover rounded-lg border border-slate-200 bg-white shrink-0"
+                              referrerPolicy="no-referrer"
+                            />
+                          ) : (
+                            <div className="w-16 h-16 bg-slate-100 rounded-lg border border-slate-200 flex items-center justify-center text-slate-400 shrink-0">
+                              <Wrench className="w-6 h-6" />
+                            </div>
+                          )}
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2">
+                              {displayCategory && (
+                                <span className="bg-slate-200/60 text-slate-700 text-[9px] font-mono font-bold px-1.5 py-0.5 rounded uppercase">
+                                  {displayCategory}
+                                </span>
+                              )}
+                              {h.createdAt && (
+                                <span className="text-slate-400 text-[10px] font-mono">
+                                  {new Date(h.createdAt).toLocaleDateString('es-PE')}
+                                </span>
+                              )}
+                            </div>
+                            <h4 className="font-extrabold text-slate-900 text-sm leading-tight">{h.productName}</h4>
+                            
+                            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-mono text-slate-500">
+                              <span>Cantidad: <strong className="text-slate-950 font-bold">{h.quantity} und.</strong></span>
+                            </div>
+                            
+                            {(h.requestType || h.paymentMethod) && (
+                              <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                                {h.requestType && (
+                                  <span className="text-[10px] bg-sky-50 text-sky-700 border border-sky-100 px-2 py-0.5 rounded font-medium">
+                                    {h.requestType}
+                                  </span>
+                                )}
+                                {h.paymentMethod && (
+                                  <span className="text-[10px] bg-indigo-50 text-indigo-700 border border-indigo-100 px-2 py-0.5 rounded font-medium">
+                                    {h.paymentMethod}
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="flex sm:flex-col items-end justify-between sm:justify-center gap-2 border-t md:border-t-0 border-slate-200/60 pt-3 md:pt-0 shrink-0">
+                          <span className="inline-flex items-center gap-1 text-emerald-600 font-black text-xs bg-emerald-50 border border-emerald-100 px-3 py-1.5 rounded-lg shadow-2xs">
+                            <CheckCircle className="w-4 h-4 text-emerald-500" />
+                            {h.status || 'Registrado'}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
 
@@ -472,6 +591,22 @@ export default function App() {
         </button>
 
         <button
+          id="btn-nav-cart-mobile"
+          onClick={() => setIsCartOpen(true)}
+          className={`flex flex-col items-center gap-1 text-[10px] font-mono font-bold py-1.5 px-3 rounded-lg transition-all relative ${
+            isCartOpen ? 'text-emerald-400 bg-emerald-500/10' : 'text-neutral-500'
+          }`}
+        >
+          <ShoppingCart className="w-5 h-5" />
+          Carrito
+          {cart.length > 0 && (
+            <span className="absolute top-1 right-2 bg-emerald-500 text-slate-950 font-black text-[9px] w-4.5 h-4.5 rounded-full flex items-center justify-center animate-bounce">
+              {cart.reduce((sum, item) => sum + item.quantity, 0)}
+            </span>
+          )}
+        </button>
+
+        <button
           id="btn-nav-history-mobile"
           onClick={() => { handleNavigate('history'); refreshLocalHistory(); }}
           className={`flex flex-col items-center gap-1 text-[10px] font-mono font-bold py-1.5 px-3 rounded-lg transition-all ${
@@ -490,18 +625,166 @@ export default function App() {
         <ProductDetailsModal 
           product={selectedProductDetails} 
           onClose={() => setSelectedProductDetails(null)} 
-          onOrder={handleOrderProduct} 
+          onOrder={handleAddToCart} 
         />
       )}
 
       {/* Checkout WhatsApp Request Form Overlay */}
-      {selectedProductForOrder && (
+      {isCartCheckoutOpen && (
         <OrderFormModal 
-          product={selectedProductForOrder} 
-          quantity={orderQuantity} 
-          onClose={() => setSelectedProductForOrder(null)} 
-          onSuccess={handleOrderSuccess} 
+          cartItems={cart} 
+          onClose={() => setIsCartCheckoutOpen(false)} 
+          onSuccess={() => {
+            setIsCartCheckoutOpen(false);
+            setCart([]); // Clear the shopping cart
+            refreshLocalHistory();
+            getProducts().then(setProducts);
+          }} 
         />
+      )}
+
+      {/* Shopping Cart Drawer Overlap */}
+      {isCartOpen && (
+        <div id="cart-drawer-overlay" className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex justify-end animate-fadeIn">
+          <div className="absolute inset-0" onClick={() => setIsCartOpen(false)} />
+          
+          <div 
+            id="cart-drawer"
+            className="relative bg-white w-full max-w-md h-full shadow-2xl border-l border-slate-200 flex flex-col animate-slideLeft text-slate-900 z-10"
+          >
+            {/* Header */}
+            <div className="p-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+              <div className="flex items-center gap-2">
+                <ShoppingCart className="w-5 h-5 text-emerald-500" />
+                <h3 className="font-display font-black text-base text-slate-900">Tu Carrito de Repuestos</h3>
+                <span className="bg-emerald-100 text-emerald-800 text-[10px] font-mono font-bold px-2 py-0.5 rounded-full">
+                  {cart.reduce((sum, item) => sum + item.quantity, 0)} und.
+                </span>
+              </div>
+              <button 
+                id="close-cart-drawer"
+                onClick={() => setIsCartOpen(false)}
+                className="p-1.5 hover:bg-slate-200 rounded-full transition-colors text-slate-500 hover:text-slate-850"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Cart Content */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+              {cart.length === 0 ? (
+                <div className="h-full flex flex-col items-center justify-center text-center p-8 text-slate-400">
+                  <ShoppingCart className="w-16 h-16 text-slate-200 mb-3" />
+                  <p className="font-display font-extrabold text-sm text-slate-700">Tu carrito está vacío</p>
+                  <p className="text-xs text-slate-400 mt-1 max-w-[240px]">
+                    Explora nuestro catálogo de repuestos de calidad y agrega productos para iniciar tu pedido.
+                  </p>
+                  <button
+                    onClick={() => { setIsCartOpen(false); handleNavigate('catalog'); }}
+                    className="mt-4 bg-emerald-500 hover:bg-emerald-450 text-slate-950 font-mono text-xs font-bold px-4 py-2 rounded-lg transition-all"
+                  >
+                    Ver Catálogo
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {cart.map((item, idx) => {
+                    const hasPrice = item.product.showPrice;
+                    const price = item.product.showPrice ? item.product.price : 0;
+                    return (
+                      <div key={idx} className="flex gap-3 bg-slate-50 p-3 rounded-xl border border-slate-200 shadow-3xs transition-all hover:border-slate-300">
+                        <img 
+                          src={item.product.imageUrl} 
+                          alt={item.product.name} 
+                          className="w-16 h-16 object-cover rounded-lg border border-slate-200 bg-white shrink-0"
+                          referrerPolicy="no-referrer"
+                        />
+                        <div className="flex-1 min-w-0 flex flex-col justify-between">
+                          <div>
+                            <span className="text-[9px] font-mono font-bold bg-slate-200 text-slate-600 px-1.5 py-0.2 rounded uppercase">
+                              {item.product.category}
+                            </span>
+                            <h4 className="font-extrabold text-slate-900 text-xs md:text-sm truncate leading-tight mt-0.5">
+                              {item.product.name}
+                            </h4>
+                          </div>
+
+                          {/* Quantity Selector inside cart */}
+                          <div className="flex items-center gap-1.5 mt-2">
+                            <div className="flex items-center border border-slate-250 rounded bg-white overflow-hidden h-7">
+                              <button
+                                type="button"
+                                id={`btn-cart-decrement-item-${item.product.id}`}
+                                onClick={() => {
+                                  setCart(prev => prev.map((c, i) => i === idx ? { ...c, quantity: Math.max(1, c.quantity - 1) } : c));
+                                }}
+                                className="px-2 h-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-extrabold text-xs"
+                              >
+                                -
+                              </button>
+                              <span className="font-mono text-xs font-bold text-slate-880 w-6 text-center">
+                                {item.quantity}
+                              </span>
+                              <button
+                                type="button"
+                                id={`btn-cart-increment-item-${item.product.id}`}
+                                onClick={() => {
+                                  setCart(prev => prev.map((c, i) => i === idx ? { ...c, quantity: c.quantity + 1 } : c));
+                                }}
+                                className="px-2 h-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-extrabold text-xs"
+                              >
+                                +
+                              </button>
+                            </div>
+
+                            {/* Remove item button */}
+                            <button
+                              id={`btn-cart-remove-item-${item.product.id}`}
+                              onClick={() => {
+                                setCart(prev => prev.filter((_, i) => i !== idx));
+                              }}
+                              className="p-1 hover:bg-rose-50 text-rose-500 hover:text-rose-700 rounded border border-transparent hover:border-rose-200 transition-colors"
+                              title="Eliminar repuesto"
+                            >
+                              <Trash className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Cart Footer */}
+            {cart.length > 0 && (
+              <div className="p-4 border-t border-slate-200 bg-slate-50 space-y-4 shrink-0">
+                <div className="space-y-1.5 font-mono">
+                  <div className="flex justify-between text-xs text-slate-700 font-bold">
+                    <span>Total de Repuestos a Cotizar:</span>
+                    <span className="text-emerald-600">{cart.reduce((sum, item) => sum + item.quantity, 0)} und.</span>
+                  </div>
+                  <p className="text-[10px] text-slate-400 leading-normal">
+                    * Al enviar el pedido, nuestro personal verificará la disponibilidad y el volumen de su solicitud para enviarle una cotización formal y los mejores precios mayoristas del mercado peruano.
+                  </p>
+                </div>
+
+                <button
+                  id="btn-cart-checkout"
+                  onClick={() => {
+                    setIsCartOpen(false);
+                    setIsCartCheckoutOpen(true);
+                  }}
+                  className="w-full bg-emerald-500 hover:bg-emerald-450 active:scale-[0.98] text-slate-950 font-display font-black py-3.5 rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg tracking-wide uppercase text-sm"
+                >
+                  <Send className="w-4 h-4" />
+                  Confirmar y Enviar Pedido
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
       )}
 
     </div>
