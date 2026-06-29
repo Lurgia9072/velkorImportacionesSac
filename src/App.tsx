@@ -168,31 +168,32 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-[#050505] text-white flex flex-col pb-20 md:pb-6">
+    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col pb-20 md:pb-6">
       {/* 1. Header (Dynamic Navigation Branding) */}
-      <header className="bg-black/95 text-white border-b border-neutral-900 sticky top-0 z-40 backdrop-blur-md">
+      <header className="bg-white/95 text-slate-900 border-b border-slate-200 sticky top-0 z-40 backdrop-blur-md">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           {/* Logo & Corporate Title */}
           <div className="flex items-center gap-3 cursor-pointer" onClick={() => handleNavigate('catalog')}>
-            <div className="w-10 h-10 bg-emerald-500 rounded-xl flex items-center justify-center text-black font-extrabold shadow-md shadow-emerald-500/20">
-              <Wrench className="w-5 h-5 text-black animate-spin-slow" style={{ animationDuration: '6s' }} />
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center text-slate-950 font-extrabold shadow-md shadow-emerald-500/20">
+              {/* <Wrench className="w-5 h-5 text-slate-950 animate-spin-slow" style={{ animationDuration: '6s' }} /> */}
+              <img src="/assets/images/logo.jpeg" alt="" />
             </div>
             <div>
               <h1 className="text-lg font-display font-black tracking-tight leading-none flex items-center gap-1">
                 VELKOR <span className="text-emerald-500">IMPORTACIONES</span>
               </h1>
-              <p className="text-[10px] text-slate-400 tracking-wider font-mono uppercase mt-1">
+              <p className="text-[10px] text-slate-500 tracking-wider font-mono uppercase mt-1">
                 REPUESTOS DE MOTOS — VENTA POR MAYOR Y MENOR PERÚ
               </p>
             </div>
           </div>
 
           {/* Desktop Navigation Link Toggles */}
-          <nav className="hidden md:flex items-center bg-neutral-950 border border-neutral-850 rounded-lg p-1 text-sm font-mono font-bold">
+          <nav className="hidden md:flex items-center bg-slate-100 border border-slate-200 rounded-lg p-1 text-sm font-mono font-bold">
             <button 
               id="nav-catalog-desktop"
               onClick={() => handleNavigate('catalog')}
-              className={`px-4 py-2 rounded-md transition-all flex items-center gap-1.5 ${activeView === 'catalog' ? 'bg-emerald-500 text-black' : 'text-neutral-400 hover:text-white'}`}
+              className={`px-4 py-2 rounded-md transition-all flex items-center gap-1.5 ${activeView === 'catalog' ? 'bg-emerald-500 text-slate-950' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'}`}
             >
               <BookOpen className="w-4 h-4" />
               Catálogo de Repuestos
@@ -200,7 +201,7 @@ export default function App() {
             <button 
               id="nav-history-desktop"
               onClick={() => { handleNavigate('history'); refreshLocalHistory(); }}
-              className={`px-4 py-2 rounded-md transition-all flex items-center gap-1.5 ${activeView === 'history' ? 'bg-emerald-500 text-black' : 'text-neutral-400 hover:text-white'}`}
+              className={`px-4 py-2 rounded-md transition-all flex items-center gap-1.5 ${activeView === 'history' ? 'bg-emerald-500 text-slate-950' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'}`}
             >
               <ClipboardList className="w-4 h-4" />
               Mis Pedidos
@@ -222,22 +223,22 @@ export default function App() {
           <div className="relative z-10 max-w-7xl w-full mx-auto px-4 sm:px-6 flex flex-col justify-center text-left space-y-4 md:space-y-6">
             <div className="space-y-2 md:space-y-3">
               <span className="inline-block bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 text-[10px] md:text-xs font-mono font-black px-3 py-1 rounded-full uppercase tracking-widest">
-                🇨🇳 IMPORTACIÓN CHINA EN CAMINO
+                 IMPORTACIÓN CHINA EN CAMINO
               </span>
-              <h1 className="text-4xl sm:text-5xl md:text-6xl font-display font-black tracking-tight uppercase leading-none">
+              <h1 className="text-4xl sm:text-5xl md:text-6xl font-display text-slate-100 font-black tracking-tight uppercase leading-none">
                 VELKOR <span className="text-emerald-500">IMPORTACIONES</span>
               </h1>
-              <p className="text-lg sm:text-xl md:text-2xl font-semibold text-neutral-200 tracking-wide font-sans capitalize">
+              <p className="text-lg sm:text-xl md:text-2xl font-semibold text-neutral-100 tracking-wide font-sans capitalize">
                 repuestos y accesorios para todo tipo de motos
               </p>
             </div>
             
-            <p className="text-sm md:text-base  max-w-2xl leading-relaxed font-sans first-letter:uppercase">
+            <p className="text-sm md:text-base text-neutral-100 max-w-2xl leading-relaxed font-sans first-letter:uppercase">
               productos de alta calidad, al mejor precio y con la confianza que tu negocio necesita
             </p>
 
             <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-neutral-900/90 border border-neutral-800 text-neutral-300 text-xs rounded-lg font-bold font-mono w-fit uppercase">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-neutral-900/90 border border-neutral-800 text-neutral-200 text-xs rounded-lg font-bold font-mono w-fit uppercase">
                 ⭐ venta por mayor y menor
               </span>
             </div>
@@ -269,37 +270,37 @@ export default function App() {
           <div id="catalog-view" className="space-y-6 animate-fadeIn">
             
             {/* Catalog Filter controls (Search & Filters Row) */}
-            <div id="catalog-filters-section" className="bg-[#111111] border border-neutral-800 rounded-2xl p-4 shadow-xs space-y-4 scroll-mt-24">
+            <div id="catalog-filters-section" className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs space-y-4 scroll-mt-24">
               <div className="flex flex-col md:flex-row gap-3">
                 {/* Search Bar Input */}
                 <div className="flex-1 relative">
-                  <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-500" />
+                  <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                   <input 
                     id="catalog-search-input"
                     type="text"
                     placeholder="Buscar repuesto (ej: filtro, Honda, pastillas, kit de arrastre...)"
                     value={searchQuery}
                     onChange={e => setSearchQuery(e.target.value)}
-                    className="w-full bg-neutral-950 border border-neutral-800 focus:border-emerald-500 rounded-xl pl-10 pr-4 py-2.5 text-sm focus:outline-hidden transition-colors text-white"
+                    className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 rounded-xl pl-10 pr-4 py-2.5 text-sm focus:outline-hidden transition-colors text-slate-900 placeholder:text-slate-400"
                   />
                   {searchQuery && (
                     <button 
                       id="catalog-clear-search"
                       onClick={() => setSearchQuery('')}
-                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-mono text-neutral-400 hover:text-neutral-200"
+                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-mono text-slate-400 hover:text-slate-600 font-bold"
                     >
                       Limpiar
                     </button>
                   )}
                 </div>
-
+ 
                 {/* Status Filter Tab Buttons */}
                 <div className="flex overflow-x-auto gap-1.5 pb-1 md:pb-0 scrollbar-none font-mono text-xs">
                   {[
                     { id: 'Todos', label: 'Todos', icon: Grid },
-                    { id: 'Nuevo', label: 'Nuevos', icon: Sparkles, color: 'text-emerald-400' },
-                    { id: 'Promoción', label: 'Promociones', icon: Flame, color: 'text-amber-400' },
-                    { id: 'Importación próxima', label: 'Por Llegar', icon: Calendar, color: 'text-blue-400' },
+                    { id: 'Nuevo', label: 'Nuevos', icon: Sparkles, color: 'text-emerald-600' },
+                    { id: 'Promoción', label: 'Promociones', icon: Flame, color: 'text-amber-500' },
+                    { id: 'Importación próxima', label: 'Por Llegar', icon: Calendar, color: 'text-blue-500' },
                   ].map(tab => {
                     const TabIcon = tab.icon;
                     const isActive = selectedStatus === tab.id;
@@ -310,8 +311,8 @@ export default function App() {
                         onClick={() => setSelectedStatus(tab.id)}
                         className={`px-3 py-2 rounded-xl border font-bold flex items-center gap-1.5 whitespace-nowrap transition-all ${
                           isActive 
-                            ? 'bg-emerald-500 text-black border-emerald-500' 
-                            : 'bg-neutral-900 hover:bg-neutral-800 text-neutral-300 border-neutral-800'
+                            ? 'bg-emerald-500 text-slate-950 border-emerald-500' 
+                            : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200'
                         }`}
                       >
                         <TabIcon className={`w-3.5 h-3.5 ${tab.color || ''}`} />
@@ -321,17 +322,17 @@ export default function App() {
                   })}
                 </div>
               </div>
-
+ 
               {/* Categories Navigation Badges */}
-              <div className="border-t border-neutral-800 pt-3 flex flex-wrap gap-1.5 items-center">
-                <span className="text-[10px] font-mono uppercase tracking-wider text-neutral-500 mr-2">Categoría:</span>
+              <div className="border-t border-slate-100 pt-3 flex flex-wrap gap-1.5 items-center">
+                <span className="text-[10px] font-mono uppercase tracking-wider text-slate-400 mr-2">Categoría:</span>
                 <button
                   id="category-all-btn"
                   onClick={() => setSelectedCategory('Todos')}
                   className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all ${
                     selectedCategory === 'Todos'
-                      ? 'bg-emerald-500 text-black'
-                      : 'bg-neutral-900 hover:bg-neutral-800 text-neutral-300 border border-neutral-800/40'
+                      ? 'bg-emerald-500 text-slate-950'
+                      : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200/60'
                   }`}
                 >
                   Ver Todo
@@ -343,8 +344,8 @@ export default function App() {
                     onClick={() => setSelectedCategory(cat)}
                     className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all ${
                       selectedCategory === cat
-                        ? 'bg-emerald-500 text-black'
-                        : 'bg-neutral-900 hover:bg-neutral-800 text-neutral-300 border border-neutral-800/40'
+                        ? 'bg-emerald-500 text-slate-950'
+                        : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200/60'
                     }`}
                   >
                     {cat}
@@ -356,20 +357,20 @@ export default function App() {
             {/* Products Grid View */}
             {loading ? (
               <div className="py-20 text-center flex flex-col items-center justify-center">
-                <div className="w-12 h-12 border-4 border-neutral-800 border-t-emerald-500 rounded-full animate-spin mb-4" />
-                <p className="text-neutral-400 text-sm font-mono">Cargando catálogo inteligente de repuestos...</p>
+                <div className="w-12 h-12 border-4 border-slate-200 border-t-emerald-500 rounded-full animate-spin mb-4" />
+                <p className="text-slate-500 text-sm font-mono">Cargando catálogo inteligente de repuestos...</p>
               </div>
             ) : filteredProducts.length === 0 ? (
-              <div className="py-16 text-center bg-[#111111] border border-neutral-800 rounded-2xl max-w-xl mx-auto">
-                <HelpCircle className="w-12 h-12 mx-auto text-neutral-500 mb-3" />
-                <h3 className="font-display font-extrabold text-base text-white">Sin resultados en catálogo</h3>
-                <p className="text-neutral-400 text-xs mt-1 px-4">
+              <div className="py-16 text-center bg-white border border-slate-200 rounded-2xl max-w-xl mx-auto">
+                <HelpCircle className="w-12 h-12 mx-auto text-slate-400 mb-3" />
+                <h3 className="font-display font-extrabold text-base text-slate-900">Sin resultados en catálogo</h3>
+                <p className="text-slate-500 text-xs mt-1 px-4">
                   No encontramos repuestos que coincidan con la búsqueda "{searchQuery}" o con los filtros activos. Intente removiendo filtros.
                 </p>
                 <button 
                   id="reset-catalog-filters"
                   onClick={() => { setSelectedCategory('Todos'); setSelectedStatus('Todos'); setSearchQuery(''); }}
-                  className="mt-4 bg-neutral-800 hover:bg-emerald-500 hover:text-black text-white text-xs font-bold px-4 py-2 rounded-lg transition-all font-mono border border-neutral-750"
+                  className="mt-4 bg-slate-100 hover:bg-emerald-500 hover:text-slate-950 text-slate-700 text-xs font-bold px-4 py-2 rounded-lg transition-all font-mono border border-slate-200"
                 >
                   Restablecer Catálogo
                 </button>
@@ -392,32 +393,32 @@ export default function App() {
         {/* ==================== VIEW B: CLIENT HISTORY ==================== */}
         {activeView === 'history' && (
           <div id="history-view" className="max-w-2xl mx-auto space-y-6 animate-fadeIn">
-            <div className="bg-[#111111] border border-neutral-800 rounded-2xl p-6 shadow-xs text-white">
-              <h2 className="text-xl font-display font-black text-white flex items-center gap-2 border-b border-neutral-800 pb-3 mb-4">
+            <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs text-slate-800">
+              <h2 className="text-xl font-display font-black text-slate-900 flex items-center gap-2 border-b border-slate-100 pb-3 mb-4">
                 <ClipboardList className="w-5 h-5 text-emerald-500" />
                 Historial de Mis Consultas / Pedidos
               </h2>
-              <p className="text-neutral-400 text-xs leading-normal">
+              <p className="text-slate-500 text-xs leading-normal">
                 Aquí puedes revisar los repuestos que has solicitado a través de esta plataforma en este navegador. Tus pedidos se registran de forma segura en nuestra base de datos.
               </p>
 
               {localHistory.length === 0 ? (
-                <div className="p-8 text-center text-neutral-500 text-xs border border-dashed border-neutral-800 rounded-xl mt-6">
+                <div className="p-8 text-center text-slate-400 text-xs border border-dashed border-slate-200 rounded-xl mt-6">
                   Todavía no has registrado ninguna solicitud de repuesto. ¡Visita el catálogo para iniciar un pedido!
                 </div>
               ) : (
                 <div className="mt-6 space-y-3">
                   {localHistory.map((h, idx) => (
-                    <div key={idx} className="p-4 bg-neutral-950 border border-neutral-800 rounded-xl flex items-center justify-between gap-4">
+                    <div key={idx} className="p-4 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between gap-4">
                       <div>
-                        <h4 className="font-bold text-white text-sm">{h.productName}</h4>
-                        <p className="text-neutral-400 text-[11px] font-mono mt-1">
-                          Cantidad: <span className="font-bold text-neutral-200">{h.quantity} und.</span>
+                        <h4 className="font-bold text-slate-900 text-sm">{h.productName}</h4>
+                        <p className="text-slate-500 text-[11px] font-mono mt-1">
+                          Cantidad: <span className="font-bold text-slate-800">{h.quantity} und.</span>
                           {h.createdAt && ` | Fecha: ${new Date(h.createdAt).toLocaleDateString('es-PE')}`}
                         </p>
                       </div>
 
-                      <span className="inline-flex items-center gap-1 text-emerald-400 font-bold text-xs bg-emerald-950/30 border border-emerald-900/50 px-2.5 py-1 rounded-md">
+                      <span className="inline-flex items-center gap-1 text-emerald-600 font-bold text-xs bg-emerald-50 border border-emerald-100 px-2.5 py-1 rounded-md">
                         <CheckCircle className="w-3.5 h-3.5 text-emerald-500" />
                         Registrado
                       </span>
@@ -426,11 +427,11 @@ export default function App() {
                 </div>
               )}
 
-              <div className="mt-6 pt-4 border-t border-neutral-800 text-center">
+              <div className="mt-6 pt-4 border-t border-slate-100 text-center">
                 <button
                   id="history-back-to-catalog"
                   onClick={() => handleNavigate('catalog')}
-                  className="bg-emerald-500 hover:bg-emerald-400 text-black text-xs font-black py-2.5 px-5 rounded-lg transition-all font-mono"
+                  className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-black py-2.5 px-5 rounded-lg transition-all font-mono"
                 >
                   Volver al Catálogo
                 </button>

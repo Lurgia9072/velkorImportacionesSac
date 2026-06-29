@@ -99,63 +99,63 @@ Pago: ${paymentMethod}`;
   };
 
   return (
-    <div id="order-form-overlay" className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md transition-all animate-fadeIn">
+    <div id="order-form-overlay" className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md transition-all animate-fadeIn">
       <div 
         id="order-form-modal"
-        className="bg-[#111111] rounded-2xl overflow-hidden w-full max-w-lg shadow-2xl border border-neutral-800 relative animate-slideUp flex flex-col max-h-[90vh] text-white"
+        className="bg-white rounded-2xl overflow-hidden w-full max-w-lg shadow-2xl border border-slate-200 relative animate-slideUp flex flex-col max-h-[90vh] text-slate-900"
       >
         {/* Close button */}
         <button 
           id="close-order-form"
           onClick={onClose}
-          className="absolute top-4 right-4 z-10 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 p-2 rounded-full transition-colors border border-neutral-700/50"
+          className="absolute top-4 right-4 z-10 bg-slate-100 hover:bg-slate-200 text-slate-600 p-2 rounded-full transition-colors border border-slate-200"
           disabled={isSubmitting}
         >
           <X className="w-5 h-5" />
         </button>
-
+ 
         {submitted ? (
           <div className="p-8 text-center flex flex-col items-center justify-center">
-            <div className="w-16 h-16 bg-emerald-500/10 text-emerald-500 rounded-full flex items-center justify-center mb-4 border border-emerald-500/20">
+            <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mb-4 border border-emerald-200">
               <CheckCircle className="w-10 h-10" />
             </div>
-            <h3 className="text-xl font-display font-extrabold text-white">¡Pedido Registrado con Éxito!</h3>
-            <p className="text-neutral-400 text-sm mt-2 max-w-sm leading-relaxed">
+            <h3 className="text-xl font-display font-extrabold text-slate-900">¡Pedido Registrado con Éxito!</h3>
+            <p className="text-slate-500 text-sm mt-2 max-w-sm leading-relaxed">
               Se ha guardado el registro en nuestra base de datos y se ha abierto WhatsApp para enviar los detalles al administrador.
             </p>
-            <p className="text-emerald-400 font-semibold text-xs mt-5 flex items-center gap-1">
+            <p className="text-emerald-600 font-semibold text-xs mt-5 flex items-center gap-1">
               <MessageCircle className="w-4 h-4 animate-bounce" />
               Redireccionando a WhatsApp...
             </p>
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="overflow-y-auto flex-1 p-6 md:p-8">
-            <h3 className="text-lg md:text-xl font-display font-black text-white border-b border-neutral-850 pb-3 flex items-center gap-2">
-              <Phone className="w-5 h-5 text-emerald-500" />
+            <h3 className="text-lg md:text-xl font-display font-black text-slate-900 border-b border-slate-100 pb-3 flex items-center gap-2">
+              <Phone className="w-5 h-5 text-emerald-600" />
               Confirmar Pedido de Repuesto
             </h3>
-
+ 
             {/* Selected Product Summary Card */}
-            <div className="my-4 p-3 bg-neutral-900 border border-neutral-800 rounded-xl flex items-center gap-3">
+            <div className="my-4 p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center gap-3">
               <img 
                 src={product.imageUrl} 
                 alt={product.name} 
                 referrerPolicy="no-referrer"
-                className="w-12 h-12 object-cover rounded-lg border border-neutral-800"
+                className="w-12 h-12 object-cover rounded-lg border border-slate-200"
               />
               <div className="flex-1">
-                <h4 className="text-white text-xs font-bold font-display line-clamp-1">{product.name}</h4>
-                <p className="text-neutral-400 text-[11px] font-mono mt-0.5">
-                  Cantidad: <span className="font-bold text-white">{quantity} und.</span>
+                <h4 className="text-slate-900 text-xs font-bold font-display line-clamp-1">{product.name}</h4>
+                <p className="text-slate-500 text-[11px] font-mono mt-0.5">
+                  Cantidad: <span className="font-bold text-slate-900">{quantity} und.</span>
                 </p>
               </div>
             </div>
-
+ 
             <div className="space-y-4">
               {/* Customer Name */}
               <div>
-                <label className="block text-[11px] font-mono uppercase tracking-wider text-neutral-400 mb-1 flex items-center gap-1">
-                  <User className="w-3.5 h-3.5 text-neutral-500" />
+                <label className="block text-[11px] font-mono uppercase tracking-wider text-slate-500 mb-1 flex items-center gap-1">
+                  <User className="w-3.5 h-3.5 text-slate-400" />
                   Nombre Completo *
                 </label>
                 <input 
@@ -165,14 +165,14 @@ Pago: ${paymentMethod}`;
                   placeholder="Ej: Juan Pérez Rojas"
                   value={customerName}
                   onChange={e => setCustomerName(e.target.value)}
-                  className="w-full bg-neutral-950 border border-neutral-800 focus:border-emerald-500 rounded-lg px-3 py-2 text-sm focus:outline-hidden transition-colors text-white"
+                  className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 rounded-lg px-3 py-2 text-sm focus:outline-hidden transition-colors text-slate-900 placeholder:text-slate-400"
                 />
               </div>
-
+ 
               {/* Customer Phone */}
               <div>
-                <label className="block text-[11px] font-mono uppercase tracking-wider text-neutral-400 mb-1 flex items-center gap-1">
-                  <Hash className="w-3.5 h-3.5 text-neutral-500" />
+                <label className="block text-[11px] font-mono uppercase tracking-wider text-slate-500 mb-1 flex items-center gap-1">
+                  <Hash className="w-3.5 h-3.5 text-slate-400" />
                   Número de Celular *
                 </label>
                 <input 
@@ -182,14 +182,14 @@ Pago: ${paymentMethod}`;
                   placeholder="Ej: 999888777"
                   value={customerPhone}
                   onChange={e => setCustomerPhone(e.target.value)}
-                  className="w-full bg-neutral-950 border border-neutral-800 focus:border-emerald-500 rounded-lg px-3 py-2 text-sm focus:outline-hidden transition-colors text-white"
+                  className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 rounded-lg px-3 py-2 text-sm focus:outline-hidden transition-colors text-slate-900 placeholder:text-slate-400"
                 />
               </div>
-
+ 
               {/* Delivery Address */}
               <div>
-                <label className="block text-[11px] font-mono uppercase tracking-wider text-neutral-400 mb-1 flex items-center gap-1">
-                  <MapPin className="w-3.5 h-3.5 text-neutral-500" />
+                <label className="block text-[11px] font-mono uppercase tracking-wider text-slate-500 mb-1 flex items-center gap-1">
+                  <MapPin className="w-3.5 h-3.5 text-slate-400" />
                   Dirección de Entrega *
                 </label>
                 <input 
@@ -199,21 +199,21 @@ Pago: ${paymentMethod}`;
                   placeholder="Ej: Av. Próceres de la Independencia 1230, S.J.L. - Lima"
                   value={deliveryAddress}
                   onChange={e => setDeliveryAddress(e.target.value)}
-                  className="w-full bg-neutral-950 border border-neutral-800 focus:border-emerald-500 rounded-lg px-3 py-2 text-sm focus:outline-hidden transition-colors text-white"
+                  className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 rounded-lg px-3 py-2 text-sm focus:outline-hidden transition-colors text-slate-900 placeholder:text-slate-400"
                 />
               </div>
-
+ 
               {/* Department / Region Filter */}
               <div>
-                <label className="block text-[11px] font-mono uppercase tracking-wider text-neutral-400 mb-1 flex items-center gap-1">
-                  <MapPin className="w-3.5 h-3.5 text-neutral-500" />
+                <label className="block text-[11px] font-mono uppercase tracking-wider text-slate-500 mb-1 flex items-center gap-1">
+                  <MapPin className="w-3.5 h-3.5 text-slate-400" />
                   Departamento / Región *
                 </label>
                 <select
                   id="select-customer-region"
                   value={region}
                   onChange={e => setRegion(e.target.value)}
-                  className="w-full bg-neutral-950 border border-neutral-800 focus:border-emerald-500 rounded-lg px-3 py-2 text-sm focus:outline-hidden transition-colors font-sans text-white"
+                  className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 rounded-lg px-3 py-2 text-sm focus:outline-hidden transition-colors font-sans text-slate-900"
                 >
                   <option value="Lima">Lima</option>
                   <option value="Callao">Callao</option>
@@ -243,35 +243,35 @@ Pago: ${paymentMethod}`;
                   <option value="Otro">Otro / Extranjero</option>
                 </select>
               </div>
-
+ 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* Request Type */}
                 <div>
-                  <label className="block text-[11px] font-mono uppercase tracking-wider text-neutral-400 mb-1">
+                  <label className="block text-[11px] font-mono uppercase tracking-wider text-slate-500 mb-1">
                     Tipo de Solicitud
                   </label>
                   <select
                     id="select-request-type"
                     value={requestType}
                     onChange={e => setRequestType(e.target.value as Order['requestType'])}
-                    className="w-full bg-neutral-950 border border-neutral-800 focus:border-emerald-500 rounded-lg px-3 py-2 text-sm focus:outline-hidden transition-colors font-sans text-white"
+                    className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 rounded-lg px-3 py-2 text-sm focus:outline-hidden transition-colors font-sans text-slate-900"
                   >
                     <option value="Compra directa">Compra directa</option>
                     <option value="Consulta">Consulta informativa</option>
                     <option value="Cotización">Cotización formal</option>
                   </select>
                 </div>
-
+ 
                 {/* Payment Method */}
                 <div>
-                  <label className="block text-[11px] font-mono uppercase tracking-wider text-neutral-400 mb-1">
+                  <label className="block text-[11px] font-mono uppercase tracking-wider text-slate-500 mb-1">
                     Método de Pago Preferido
                   </label>
                   <select
                     id="select-payment-method"
                     value={paymentMethod}
                     onChange={e => setPaymentMethod(e.target.value as Order['paymentMethod'])}
-                    className="w-full bg-neutral-950 border border-neutral-800 focus:border-emerald-500 rounded-lg px-3 py-2 text-sm focus:outline-hidden transition-colors font-sans text-white"
+                    className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 rounded-lg px-3 py-2 text-sm focus:outline-hidden transition-colors font-sans text-slate-900"
                   >
                     <option value="20% adelanto / 80% entrega">20% Adelanto / 80% Contra-entrega</option>
                     <option value="50/50">50% Adelanto / 50% Saldo</option>
@@ -279,10 +279,10 @@ Pago: ${paymentMethod}`;
                   </select>
                 </div>
               </div>
-
+ 
               {/* Editable WhatsApp business target number */}
-              <div className="pt-4 border-t border-dashed border-neutral-800">
-                <label className="block text-[10px] font-mono uppercase text-neutral-500 mb-1">
+              <div className="pt-4 border-t border-dashed border-slate-200">
+                <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1 font-bold">
                   Enviar pedido al WhatsApp del Negocio (Número de Pruebas):
                 </label>
                 <input 
@@ -291,21 +291,21 @@ Pago: ${paymentMethod}`;
                   placeholder="Ej: 999999999"
                   value={whatsappNumber}
                   onChange={e => setWhatsappNumber(e.target.value)}
-                  className="w-full bg-neutral-950 border border-neutral-800 focus:border-emerald-500 rounded-lg px-3 py-1.5 text-xs font-mono focus:outline-hidden transition-colors text-neutral-300"
+                  className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 rounded-lg px-3 py-1.5 text-xs font-mono focus:outline-hidden transition-colors text-slate-700"
                 />
-                <span className="text-[10px] text-neutral-500 mt-1 block leading-normal">
+                <span className="text-[10px] text-slate-400 mt-1 block leading-normal">
                   * Cambia este número para probar el envío directo a tu propio WhatsApp celular.
                 </span>
               </div>
             </div>
-
+ 
             {/* Actions */}
-            <div className="mt-6 pt-4 border-t border-neutral-805 flex gap-3">
+            <div className="mt-6 pt-4 border-t border-slate-100 flex gap-3">
               <button
                 id="btn-cancel-order"
                 type="button"
                 onClick={onClose}
-                className="flex-1 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 py-3 rounded-xl transition-colors text-sm font-semibold"
+                className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 py-3 rounded-xl transition-colors text-sm font-semibold border border-slate-200"
                 disabled={isSubmitting}
               >
                 Cancelar
@@ -313,7 +313,7 @@ Pago: ${paymentMethod}`;
               <button
                 id="btn-submit-order"
                 type="submit"
-                className="flex-1 bg-emerald-500 hover:bg-emerald-400 text-black py-3 rounded-xl transition-colors text-sm font-black flex items-center justify-center gap-2 shadow-lg"
+                className="flex-1 bg-emerald-500 hover:bg-emerald-450 text-slate-950 py-3 rounded-xl transition-colors text-sm font-black flex items-center justify-center gap-2 shadow-lg"
                 disabled={isSubmitting}
               >
                 {isSubmitting ? (
