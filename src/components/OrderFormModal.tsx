@@ -17,7 +17,8 @@ export const OrderFormModal: React.FC<OrderFormModalProps> = ({ product, quantit
   const [region, setRegion] = useState('Lima'); // Peruvian region tracking
   const [requestType, setRequestType] = useState<Order['requestType']>('Compra directa');
   const [paymentMethod, setPaymentMethod] = useState<Order['paymentMethod']>('20% adelanto / 80% entrega');
-  const [whatsappNumber, setWhatsappNumber] = useState('+51 970329450'); // Default Peruvian number placeholder, editable for testing
+  const [whatsappNumber, setWhatsappNumber] = useState('+51970329450'); // Default Peruvian number placeholder, editable for testing
+  const [orderQuantity, setOrderQuantity] = useState(quantity || 1);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -41,7 +42,7 @@ export const OrderFormModal: React.FC<OrderFormModalProps> = ({ product, quantit
         productId: product.id || '',
         productName: product.name,
         productPrice: product.showPrice ? product.price : 0,
-        quantity,
+        quantity: orderQuantity,
         requestType,
         paymentMethod,
         status: 'En seguimiento', // Initial state requested: "En seguimiento", "Venta cerrada", "No compró"
@@ -59,7 +60,7 @@ Región: ${region}
 Dirección: ${deliveryAddress}
 
 Producto: ${product.name}
-Cantidad: ${quantity} und.
+Cantidad: ${orderQuantity} und.
 
 Tipo: ${requestType}
 Pago: ${paymentMethod}`;
@@ -75,7 +76,7 @@ Pago: ${paymentMethod}`;
       const localOrders = JSON.parse(localStorage.getItem('velkor_local_orders') || '[]');
       localOrders.push({
         productName: product.name,
-        quantity,
+        quantity: orderQuantity,
         status: 'En seguimiento',
         createdAt: new Date().toISOString()
       });
@@ -146,12 +147,45 @@ Pago: ${paymentMethod}`;
               <div className="flex-1">
                 <h4 className="text-slate-900 text-xs font-bold font-display line-clamp-1">{product.name}</h4>
                 <p className="text-slate-500 text-[11px] font-mono mt-0.5">
-                  Cantidad: <span className="font-bold text-slate-900">{quantity} und.</span>
+                  Precio Unitario: <span className="font-bold text-slate-950">{product.showPrice ? `S/ ${product.price.toFixed(2)}` : 'A consultar'}</span>
                 </p>
               </div>
             </div>
  
             <div className="space-y-4">
+              {/* Cantidad Interesada */}
+              <div>
+                <label className="block text-[11px] font-mono uppercase tracking-wider text-slate-500 mb-1.5 flex items-center gap-1 font-bold">
+                  Cantidad Solicitada *
+                </label>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setOrderQuantity(prev => Math.max(1, prev - 1))}
+                    className="w-9 h-9 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-lg flex items-center justify-center font-bold text-slate-700 transition-colors select-none"
+                  >
+                    -
+                  </button>
+                  <input 
+                    id="input-order-quantity"
+                    type="number"
+                    min="1"
+                    required
+                    value={orderQuantity}
+                    onChange={e => setOrderQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+                    className="w-16 bg-slate-50 border border-slate-200 focus:border-emerald-500 rounded-lg py-1.5 text-center text-xs font-bold focus:outline-hidden transition-colors text-slate-900 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setOrderQuantity(prev => prev + 1)}
+                    className="w-9 h-9 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-lg flex items-center justify-center font-bold text-slate-700 transition-colors select-none"
+                  >
+                    +
+                  </button>
+                  <span className="text-[11px] text-slate-400 font-mono ml-1">unidades de este repuesto.</span>
+                </div>
+              </div>
+
               {/* Customer Name */}
               <div>
                 <label className="block text-[11px] font-mono uppercase tracking-wider text-slate-500 mb-1 flex items-center gap-1">
