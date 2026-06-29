@@ -216,8 +216,9 @@ export default function App() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           {/* Logo & Corporate Title */}
           <div className="flex items-center gap-3 cursor-pointer" onClick={() => handleNavigate('catalog')}>
-            <div className="w-10 h-10 bg-emerald-500 rounded-xl flex items-center justify-center text-slate-950 font-extrabold shadow-md shadow-emerald-500/20">
-              <Wrench className="w-5 h-5 text-slate-950 animate-spin-slow" style={{ animationDuration: '6s' }} />
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center text-slate-950 font-extrabold shadow-md shadow-emerald-500/20">
+              {/* <Wrench className="w-5 h-5 text-slate-950 animate-spin-slow" style={{ animationDuration: '6s' }} /> */}
+              <img src="/assets/images/logo.jpeg" alt="VELKOR IMPORTACIONES" />
             </div>
             <div>
               <h1 className="text-lg font-display font-black tracking-tight leading-none flex items-center gap-1">
@@ -253,7 +254,7 @@ export default function App() {
             <button
               id="btn-cart-desktop"
               onClick={() => setIsCartOpen(true)}
-              className="relative bg-slate-900 hover:bg-slate-800 text-white font-mono font-bold text-xs px-4 py-2.5 rounded-xl border border-slate-800 flex items-center gap-2 transition-all cursor-pointer"
+              className="relative bg-black hover:bg-slate-800 text-white font-mono font-bold text-xs px-4 py-2.5 rounded-xl border border-slate-800 flex items-center gap-2 transition-all cursor-pointer"
             >
               <ShoppingCart className="w-4 h-4 text-emerald-400" />
               <span>Mi Carrito ({cart.reduce((sum, item) => sum + item.quantity, 0)})</span>
@@ -511,7 +512,14 @@ export default function App() {
                                 </span>
                               )}
                             </div>
-                            <h4 className="font-extrabold text-slate-900 text-sm leading-tight">{h.productName}</h4>
+                            <h4 className="font-extrabold text-slate-900 text-sm leading-tight">
+                              {matchedProduct?.code && (
+                                <span className="text-emerald-700 font-mono text-[10px] font-black mr-1 bg-emerald-100 px-1 py-0.5 rounded border border-emerald-200">
+                                  {matchedProduct.code}
+                                </span>
+                              )}
+                              {h.productName}
+                            </h4>
                             
                             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-mono text-slate-500">
                               <span>Cantidad: <strong className="text-slate-950 font-bold">{h.quantity} und.</strong></span>

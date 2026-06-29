@@ -16,6 +16,7 @@ export interface Product {
   wholesalePrice?: number;    // Only visible to administrators
   retailPrice?: number;       // Only visible to administrators
   arrivalDate?: string;       // Expected delivery date from China for upcoming imports
+  code?: string;              // Product code VK
 }
 
 export interface Order {
@@ -27,6 +28,7 @@ export interface Order {
   productId: string;
   productName: string;
   productPrice: number;
+  productCode?: string;       // Saved product code VK
   quantity: number;
   requestType: 'Compra directa' | 'Consulta' | 'Cotización';
   paymentMethod: '50/50' | '20% adelanto / 80% entrega' | 'Otro';
@@ -35,6 +37,7 @@ export interface Order {
   pendingAmount?: number;     // Remaining unpaid balance tracked by administrator
   noPurchaseReason?: string;
   createdAt: string; // ISO string
+  orderGroupId?: string;      // Group ID for consolidating checkout items
 }
 
 export const CATEGORIES = [

@@ -111,6 +111,13 @@ export const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({ produc
                   {product.category}
                 </span>
  
+                {product.code && (
+                  <div className="mb-2">
+                    <span className="inline-block bg-emerald-550 text-emerald-800 text-xs font-mono font-bold tracking-wider px-2 py-0.5 rounded-sm uppercase border border-emerald-200">
+                      Código: {product.code}
+                    </span>
+                  </div>
+                )}
                 <h2 className="text-xl md:text-2xl font-display font-black text-slate-900 leading-tight">
                   {product.name}
                 </h2>

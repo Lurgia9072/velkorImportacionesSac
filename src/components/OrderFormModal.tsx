@@ -41,6 +41,8 @@ export const OrderFormModal: React.FC<OrderFormModalProps> = ({ cartItems, onClo
     setIsSubmitting(true);
 
     try {
+      const orderGroupId = `VK-GRP-${Date.now()}-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
+
       // 1. Save each item as a separate order in Firestore
       for (const item of cartItems) {
         const newOrder: Omit<Order, 'id'> = {
@@ -51,11 +53,13 @@ export const OrderFormModal: React.FC<OrderFormModalProps> = ({ cartItems, onClo
           productId: item.product.id || '',
           productName: item.product.name,
           productPrice: item.product.showPrice ? item.product.price : 0,
+          productCode: item.product.code || '',
           quantity: item.quantity,
           requestType,
           paymentMethod,
           status: 'En seguimiento', // Initial status
-          createdAt: new Date().toISOString()
+          createdAt: new Date().toISOString(),
+          orderGroupId
         };
         await createOrder(newOrder);
       }
@@ -63,7 +67,8 @@ export const OrderFormModal: React.FC<OrderFormModalProps> = ({ cartItems, onClo
       // 2. Format a single clean WhatsApp message listing all products
       let itemsText = '';
       cartItems.forEach((item, idx) => {
-        itemsText += `${idx + 1}. *${item.product.name}*\n   Cantidad: ${item.quantity} und.\n\n`;
+        const codeText = item.product.code ? ` (Cód: ${item.product.code})` : '';
+        itemsText += `${idx + 1}. *${item.product.name}*${codeText}\n   Cantidad: ${item.quantity} und.\n\n`;
       });
 
       const formattedMessage = `Nuevo pedido Velkor Importaciones:
@@ -322,7 +327,7 @@ Método de Pago Preferido: ${paymentMethod}`;
                 <input 
                   id="input-whatsapp-target"
                   type="text"
-                  placeholder="Ej: 999999999"
+                  placeholder="Ej: +51970329450"
                   value={whatsappNumber}
                   onChange={e => setWhatsappNumber(e.target.value)}
                   className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 rounded-lg px-3 py-1.5 text-xs font-mono focus:outline-hidden transition-colors text-slate-700"

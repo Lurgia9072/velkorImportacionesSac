@@ -15,7 +15,8 @@
         "stock": { "type": "number" },
         "imageUrl": { "type": "string" },
         "views": { "type": "number" },
-        "sales": { "type": "number" }
+        "sales": { "type": "number" },
+        "code": { "type": "string" }
       },
       "required": ["name", "category", "status", "description"]
     },
@@ -31,12 +32,14 @@
         "productId": { "type": "string" },
         "productName": { "type": "string" },
         "productPrice": { "type": "number" },
+        "productCode": { "type": "string" },
         "quantity": { "type": "number" },
         "requestType": { "type": "string", "enum": ["Compra directa", "Consulta", "Cotización"] },
         "paymentMethod": { "type": "string", "enum": ["50/50", "20% adelanto / 80% entrega", "Otro"] },
         "status": { "type": "string", "enum": ["En seguimiento", "Venta cerrada", "No compró"] },
         "noPurchaseReason": { "type": "string" },
-        "createdAt": { "type": "string", "format": "date-time" }
+        "createdAt": { "type": "string", "format": "date-time" },
+        "orderGroupId": { "type": "string" }
       },
       "required": ["customerName", "customerPhone", "deliveryAddress", "productId", "productName", "quantity", "requestType", "paymentMethod", "status"]
     }

@@ -83,6 +83,13 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onSelect, onA
             {product.category}
           </span>
           
+          {/* Code badge */}
+          {product.code && (
+            <span className="inline-block text-[10px] font-mono font-bold bg-slate-100 text-slate-600 border border-slate-200 px-1.5 py-0.5 rounded uppercase mt-2">
+              Cód: {product.code}
+            </span>
+          )}
+
           {/* Name */}
           <h3 
             onClick={() => onSelect(product)}

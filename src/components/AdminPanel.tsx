@@ -55,6 +55,7 @@ export const AdminPanel: React.FC = () => {
   const [isEditingProduct, setIsEditingProduct] = useState(false);
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
   const [prodName, setProdName] = useState('');
+  const [prodCode, setProdCode] = useState('');
   const [prodPrice, setProdPrice] = useState(0);
   const [prodShowPrice, setProdShowPrice] = useState(true);
   const [prodCategory, setProdCategory] = useState<string>(CATEGORIES[0]);
@@ -236,10 +237,42 @@ export const AdminPanel: React.FC = () => {
     }
   };
 
+  const handleUpdateGroupOrderStatus = async (groupId: string, items: Order[], newStatus: Order['status'], reason = '') => {
+    try {
+      setLoading(true);
+      for (const item of items) {
+        if (item.id) {
+          await updateOrder(item.id, { 
+            status: newStatus,
+            ...(newStatus === 'No compró' ? { noPurchaseReason: reason } : {})
+          });
+        }
+      }
+      
+      // Update local state for all matching orders
+      setOrders(prev => prev.map(o => {
+        const itemInGroup = items.find(item => item.id === o.id);
+        if (itemInGroup) {
+          return { ...o, status: newStatus, noPurchaseReason: reason };
+        }
+        return o;
+      }));
+      setSelectedOrderForCancel(null);
+      setNoPurchaseReasonInput('');
+      alert('Se actualizó el estado de todos los productos en este pedido.');
+    } catch (err) {
+      console.error('Error updating group orders:', err);
+      alert('Error al actualizar el pedido');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // --- Product CRUD Actions ---
   const handleOpenNewProduct = () => {
     setEditingProductId(null);
     setProdName('');
+    setProdCode('');
     setProdPrice(0);
     setProdShowPrice(true);
     setProdCategory(CATEGORIES[0]);
@@ -259,6 +292,7 @@ export const AdminPanel: React.FC = () => {
   const handleOpenEditProduct = (p: Product) => {
     setEditingProductId(p.id || null);
     setProdName(p.name);
+    setProdCode(p.code || '');
     setProdPrice(p.price);
     setProdShowPrice(p.showPrice);
     setProdCategory(p.category);
@@ -286,6 +320,7 @@ export const AdminPanel: React.FC = () => {
 
     const payload: Omit<Product, 'id'> = {
       name: prodName,
+      code: prodCode,
       price: Number(prodWholesalePrice), // keep general price in sync with wholesale
       showPrice: prodShowPrice,
       category: prodCategory,
@@ -499,7 +534,7 @@ export const AdminPanel: React.FC = () => {
       <div id="admin-login-screen" className="max-w-md mx-auto my-12 bg-[#111111] rounded-2xl border border-neutral-800 shadow-xl overflow-hidden text-white animate-fadeIn">
         <div className="bg-black p-6 text-center text-white border-b border-neutral-850">
           <div className="mx-auto w-12 h-12 bg-emerald-500/10 text-emerald-500 rounded-full flex items-center justify-center mb-3">
-            <Shield className="w-6 h-6" />
+             <img src="/assets/images/logo.jpeg" alt="VELKOR IMPORTACIONES" />
           </div>
           <h2 className="text-xl font-display font-black tracking-tight">Acceso Administrativo</h2>
           <p className="text-neutral-400 text-xs mt-1">Velkor Importaciones S.A.C.</p>
@@ -556,22 +591,7 @@ export const AdminPanel: React.FC = () => {
             </button>
           </form>
 
-          <div className="relative my-6 text-center">
-            <hr className="border-neutral-850" />
-            <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 bg-[#111111] px-2 text-[10px] text-neutral-500 uppercase font-mono">o</span>
-          </div>
-
-          <button
-            id="admin-bypass-btn"
-            onClick={handleDemoAccess}
-            className="w-full bg-neutral-800 hover:bg-neutral-700 border border-neutral-750 text-neutral-200 py-2.5 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 font-mono"
-          >
-            <Sparkles className="w-4 h-4" />
-            Autocompletar Datos (Demo)
-          </button>
-          <p className="text-[10px] text-center text-neutral-500 mt-2 font-mono">
-            * Carga las credenciales autorizadas del corporativo Velkor.
-          </p>
+         
         </div>
       </div>
     );
@@ -585,8 +605,8 @@ export const AdminPanel: React.FC = () => {
         <div className="space-y-6">
           {/* Header & Corporate Title */}
           <div className="flex items-center gap-3 pb-5 border-b border-slate-800">
-            <div className="w-9 h-9 bg-emerald-500 text-slate-950 rounded-xl flex items-center justify-center font-black shadow-md shadow-emerald-500/20">
-              <Shield className="w-5 h-5" />
+            <div className="w-9 h-9 text-slate-950 rounded-xl flex items-center justify-center font-black shadow-md shadow-emerald-500/20">
+             <img src="/assets/images/logo.jpeg" alt="VELKOR IMPORTACIONES" />
             </div>
             <div>
               <h2 className="font-display font-black text-sm text-white tracking-tight leading-none">VELKOR ADMIN</h2>
@@ -640,7 +660,7 @@ export const AdminPanel: React.FC = () => {
               title="Sincronizar base de datos"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-              Sincronizar DB
+              Sincronizar información
             </button>
           </div>
           <div className="flex items-center gap-2">
@@ -648,7 +668,7 @@ export const AdminPanel: React.FC = () => {
               VK
             </div>
             <div className="truncate">
-              <p className="font-bold text-white leading-tight">Yauramiza A.</p>
+              <p className="font-bold text-white leading-tight">Yauramiza Ivan</p>
               <p className="text-slate-500 text-[8px] truncate">velkoryauramiza@gmail.com</p>
             </div>
           </div>
@@ -784,204 +804,274 @@ export const AdminPanel: React.FC = () => {
                 </div>
               </div>
 
-              {orders.filter(o => {
-                const matchesStatus = orderFilterStatus === 'Todos' ? true : o.status === orderFilterStatus;
-                const matchesRegion = orderFilterRegion === 'Todos' ? true : (o.region || 'Lima') === orderFilterRegion;
-                return matchesStatus && matchesRegion;
-              }).length === 0 ? (
-                <div className="p-12 text-center text-slate-400 bg-white">
-                  <ShoppingBag className="w-12 h-12 mx-auto text-slate-300 mb-3" />
-                  <p className="font-medium text-sm text-slate-700">No hay pedidos con los filtros seleccionados.</p>
-                  <p className="text-xs text-slate-400 mt-1">Sincroniza la base de datos o limpia los filtros para ver todos los registros.</p>
-                </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-sm border-collapse bg-white">
-                    <thead className="bg-slate-50 text-[11px] font-mono text-slate-500 uppercase border-b border-slate-200">
-                      <tr>
-                        <th className="p-4">Cliente</th>
-                        <th className="p-4">Producto Solicitado</th>
-                        <th className="p-4">Detalles / Tipo</th>
-                        <th className="p-4">Pago Preferido</th>
-                        <th className="p-4">Fecha</th>
-                        <th className="p-4">Estado</th>
-                        <th className="p-4 text-right">Acciones</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {orders
-                        .filter(o => {
-                          const matchesStatus = orderFilterStatus === 'Todos' ? true : o.status === orderFilterStatus;
-                          const matchesRegion = orderFilterRegion === 'Todos' ? true : (o.region || 'Lima') === orderFilterRegion;
-                          return matchesStatus && matchesRegion;
-                        })
-                        .map((o) => {
-                          const isCancelling = selectedOrderForCancel === o.id;
+              {(() => {
+                const filteredIndividualOrders = orders.filter(o => {
+                  const matchesStatus = orderFilterStatus === 'Todos' ? true : o.status === orderFilterStatus;
+                  const matchesRegion = orderFilterRegion === 'Todos' ? true : (o.region || 'Lima') === orderFilterRegion;
+                  return matchesStatus && matchesRegion;
+                });
 
-                        return (
-                          <tr key={o.id} className="hover:bg-slate-50/50 transition-colors">
-                            {/* Customer details */}
-                            <td className="p-4">
-                              <p className="font-bold text-slate-900">{o.customerName}</p>
-                              <div className="flex items-center gap-2 mt-0.5">
-                                <span className="text-xs text-slate-500 font-mono">{o.customerPhone}</span>
-                                <span className="px-1.5 py-0.5 bg-slate-100 text-slate-600 border border-slate-200 text-[10px] rounded font-bold font-mono">
-                                  📍 {o.region || 'Lima'}
-                                </span>
-                              </div>
-                              <p className="text-xs text-slate-400 italic line-clamp-1 mt-1">{o.deliveryAddress}</p>
-                            </td>
+                // Group by orderGroupId. If missing, use id
+                const groupsMap: { [key: string]: { id: string; customerName: string; customerPhone: string; deliveryAddress: string; region: string; requestType: string; paymentMethod: string; status: string; createdAt: string; items: Order[] } } = {};
+                
+                filteredIndividualOrders.forEach(o => {
+                  const gId = o.orderGroupId || o.id || `UNKNOWN-${Math.random()}`;
+                  if (!groupsMap[gId]) {
+                    groupsMap[gId] = {
+                      id: gId,
+                      customerName: o.customerName,
+                      customerPhone: o.customerPhone,
+                      deliveryAddress: o.deliveryAddress,
+                      region: o.region || 'Lima',
+                      requestType: o.requestType,
+                      paymentMethod: o.paymentMethod,
+                      status: o.status,
+                      createdAt: o.createdAt,
+                      items: []
+                    };
+                  }
+                  groupsMap[gId].items.push(o);
+                });
 
-                            {/* Product details */}
-                            <td className="p-4">
-                              <p className="font-semibold text-slate-900">{o.productName}</p>
-                              <p className="text-xs text-slate-500 font-mono mt-0.5">
-                                Cantidad: <span className="font-bold text-slate-900">{o.quantity}</span>
-                                {o.productPrice > 0 && ` | S/. ${(o.productPrice * o.quantity).toFixed(2)}`}
-                              </p>
-                            </td>
+                const sortedGroups = Object.values(groupsMap).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
-                            {/* Request Type */}
-                            <td className="p-4">
-                              <span className={`inline-block text-[10px] font-mono font-bold px-2 py-0.5 rounded uppercase tracking-wider ${
-                                o.requestType === 'Compra directa' ? 'bg-emerald-100 text-emerald-800' :
-                                o.requestType === 'Cotización' ? 'bg-blue-100 text-blue-800' :
-                                'bg-slate-100 text-slate-700'
-                              }`}>
-                                {o.requestType}
-                              </span>
-                            </td>
+                if (sortedGroups.length === 0) {
+                  return (
+                    <div className="p-12 text-center text-slate-400 bg-white">
+                      <ShoppingBag className="w-12 h-12 mx-auto text-slate-300 mb-3" />
+                      <p className="font-medium text-sm text-slate-700">No hay pedidos con los filtros seleccionados.</p>
+                      <p className="text-xs text-slate-400 mt-1">Sincroniza la base de datos o limpia los filtros para ver todos los registros.</p>
+                    </div>
+                  );
+                }
 
-                            {/* Payment details */}
-                            <td className="p-4 text-xs font-mono text-slate-600">
-                              {o.paymentMethod}
-                            </td>
+                return (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-sm border-collapse bg-white">
+                      <thead className="bg-slate-50 text-[11px] font-mono text-slate-500 uppercase border-b border-slate-200">
+                        <tr>
+                          <th className="p-4">Cliente / Contacto</th>
+                          <th className="p-4 min-w-[320px]">Productos Solicitados (Carrito)</th>
+                          <th className="p-4">Tipo / Solicitud</th>
+                          <th className="p-4">Pago Preferido</th>
+                          <th className="p-4">Fecha</th>
+                          <th className="p-4">Estado</th>
+                          <th className="p-4 text-right">Acciones de Pedido</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {sortedGroups.map((group) => {
+                          const isCancelling = selectedOrderForCancel === group.id;
+                          const totalGroupPrice = group.items.reduce((sum, item) => sum + (item.productPrice * item.quantity), 0);
 
-                            {/* Date */}
-                            <td className="p-4 text-xs font-mono text-slate-500">
-                              {new Date(o.createdAt).toLocaleDateString('es-PE')}
-                              <br />
-                              <span className="text-[10px] text-slate-400">
-                                {new Date(o.createdAt).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })}
-                              </span>
-                            </td>
-
-                            {/* Order Status */}
-                            <td className="p-4">
-                              {o.status === 'Venta cerrada' ? (
-                                <span className="inline-flex items-center gap-1 text-emerald-600 font-bold text-xs bg-emerald-50 px-2.5 py-1 rounded-md">
-                                  <CheckCircle className="w-3.5 h-3.5" />
-                                  Venta Cerrada
-                                </span>
-                              ) : o.status === 'No compró' ? (
+                          return (
+                            <tr key={group.id} className="hover:bg-slate-50/50 transition-colors align-top">
+                              {/* Customer details */}
+                              <td className="p-4">
                                 <div className="space-y-1">
-                                  <span className="inline-flex items-center gap-1 text-rose-600 font-bold text-xs bg-rose-50 px-2.5 py-1 rounded-md">
-                                    <XCircle className="w-3.5 h-3.5" />
-                                    No Compró
-                                  </span>
-                                  {o.noPurchaseReason && (
-                                    <p className="text-[11px] text-slate-500 italic bg-slate-50 p-1.5 border border-slate-100 rounded max-w-[180px]">
-                                      Motivo: {o.noPurchaseReason}
-                                    </p>
+                                  <p className="font-extrabold text-slate-900 text-sm">{group.customerName}</p>
+                                  <div className="flex flex-wrap gap-1">
+                                    <span className="text-[11px] text-slate-600 font-mono font-bold bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
+                                      📞 {group.customerPhone}
+                                    </span>
+                                    <span className="px-1.5 py-0.5 bg-slate-100 text-slate-600 border border-slate-200 text-[10px] rounded font-bold font-mono">
+                                      📍 {group.region}
+                                    </span>
+                                  </div>
+                                  <p className="text-xs text-slate-400 italic line-clamp-2 max-w-[200px]" title={group.deliveryAddress}>
+                                    {group.deliveryAddress}
+                                  </p>
+                                  
+                                  {group.id.startsWith('VK-GRP-') && (
+                                    <span className="inline-block mt-1 font-mono text-[9px] font-black text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100">
+                                      📦 ID Carrito: {group.id.substring(7, 18)}
+                                    </span>
                                   )}
                                 </div>
-                              ) : (
-                                <span className="inline-flex items-center gap-1 text-amber-600 font-bold text-xs bg-amber-50 px-2.5 py-1 rounded-md animate-pulse">
-                                  <AlertCircle className="w-3.5 h-3.5" />
-                                  En Seguimiento
-                                </span>
-                              )}
-                            </td>
+                              </td>
 
-                            {/* Actions / Status changes */}
-                            <td className="p-4 text-right">
-                              {isCancelling ? (
-                                <div className="space-y-2 inline-block text-left bg-slate-100 p-3 rounded-xl border border-slate-200">
-                                  <label className="block text-[10px] font-mono uppercase text-slate-500 font-bold mb-1">
-                                    Motivo de no compra (Obligatorio)
-                                  </label>
-                                  <select 
-                                    id={`reason-select-${o.id}`}
-                                    value={noPurchaseReasonInput}
-                                    onChange={e => setNoPurchaseReasonInput(e.target.value)}
-                                    className="w-full bg-white border border-slate-300 rounded px-2 py-1 text-xs mb-2 focus:outline-hidden"
-                                  >
-                                    <option value="">Seleccione motivo...</option>
-                                    <option value="Muy caro">Precio elevado (Muy caro)</option>
-                                    <option value="Falta de stock">No hay stock disponible</option>
-                                    <option value="No responde">No volvió a responder WhatsApp</option>
-                                    <option value="Costo de envío">Costo de envío elevado</option>
-                                    <option value="Demora entrega">Tiempo de entrega prolongado</option>
-                                    <option value="Otro">Otro motivo</option>
-                                  </select>
-                                  
-                                  {noPurchaseReasonInput === 'Otro' && (
-                                    <input 
-                                      id={`custom-reason-${o.id}`}
-                                      type="text"
-                                      placeholder="Especificar motivo..."
+                              {/* Cart Items consolidated */}
+                              <td className="p-4">
+                                <div className="space-y-2">
+                                  {group.items.map((item, idx) => (
+                                    <div key={item.id || idx} className="bg-slate-50 border border-slate-100 p-2 rounded-xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-1">
+                                      <div>
+                                        <div className="flex items-center gap-1.5 flex-wrap">
+                                          <span className="text-emerald-700 font-black font-mono text-xs">
+                                            [{item.quantity} und.]
+                                          </span>
+                                          <span className="font-bold text-slate-800 text-xs">
+                                            {item.productName}
+                                          </span>
+                                        </div>
+                                        {item.productCode && (
+                                          <span className="inline-block bg-emerald-100 text-emerald-800 border border-emerald-200 text-[9px] font-mono font-black px-1 py-0.5 rounded mt-1">
+                                            CÓDIGO: {item.productCode}
+                                          </span>
+                                        )}
+                                      </div>
+                                      
+                                      <span className="text-xs font-mono text-slate-500 font-bold">
+                                        {item.productPrice > 0 
+                                          ? `S/. ${(item.productPrice * item.quantity).toFixed(2)}` 
+                                          : 'S/. (Sin precio listado)'}
+                                      </span>
+                                    </div>
+                                  ))}
+
+                                  {totalGroupPrice > 0 && (
+                                    <div className="pt-2 border-t border-slate-200 flex justify-between items-center bg-slate-50/40 p-2 rounded-lg">
+                                      <span className="text-[10px] font-mono uppercase text-slate-400 font-black">Monto Total del Pedido:</span>
+                                      <span className="font-mono font-black text-sm text-emerald-600 bg-emerald-50 border border-emerald-100 px-2.5 py-1 rounded-md">
+                                        S/. {totalGroupPrice.toFixed(2)}
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
+                              </td>
+
+                              {/* Request Type */}
+                              <td className="p-4">
+                                <span className={`inline-block text-[10px] font-mono font-bold px-2 py-0.5 rounded uppercase tracking-wider ${
+                                  group.requestType === 'Compra directa' ? 'bg-emerald-100 text-emerald-800' :
+                                  group.requestType === 'Cotización' ? 'bg-blue-100 text-blue-800' :
+                                  'bg-slate-100 text-slate-700'
+                                }`}>
+                                  {group.requestType}
+                                </span>
+                              </td>
+
+                              {/* Payment details */}
+                              <td className="p-4 text-xs font-mono text-slate-600">
+                                {group.paymentMethod}
+                              </td>
+
+                              {/* Date */}
+                              <td className="p-4 text-xs font-mono text-slate-500">
+                                {new Date(group.createdAt).toLocaleDateString('es-PE')}
+                                <br />
+                                <span className="text-[10px] text-slate-400">
+                                  {new Date(group.createdAt).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })}
+                                </span>
+                              </td>
+
+                              {/* Order Status */}
+                              <td className="p-4">
+                                {group.status === 'Venta cerrada' ? (
+                                  <span className="inline-flex items-center gap-1 text-emerald-600 font-bold text-xs bg-emerald-50 px-2.5 py-1 rounded-md border border-emerald-100">
+                                    <CheckCircle className="w-3.5 h-3.5" />
+                                    Venta Cerrada
+                                  </span>
+                                ) : group.status === 'No compró' ? (
+                                  <div className="space-y-1">
+                                    <span className="inline-flex items-center gap-1 text-rose-600 font-bold text-xs bg-rose-50 px-2.5 py-1 rounded-md border border-rose-100">
+                                      <XCircle className="w-3.5 h-3.5" />
+                                      No Compró
+                                    </span>
+                                    {group.items[0]?.noPurchaseReason && (
+                                      <p className="text-[11px] text-slate-500 italic bg-slate-50 p-1.5 border border-slate-100 rounded max-w-[180px]">
+                                        Motivo: {group.items[0].noPurchaseReason}
+                                      </p>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1 text-amber-600 font-bold text-xs bg-amber-50 px-2.5 py-1 rounded-md border border-amber-100 animate-pulse">
+                                    <AlertCircle className="w-3.5 h-3.5" />
+                                    En Seguimiento
+                                  </span>
+                                )}
+                              </td>
+
+                              {/* Actions */}
+                              <td className="p-4 text-right">
+                                {isCancelling ? (
+                                  <div className="space-y-2 inline-block text-left bg-slate-100 p-3 rounded-xl border border-slate-200">
+                                    <label className="block text-[10px] font-mono uppercase text-slate-500 font-bold mb-1">
+                                      Motivo de no compra (Obligatorio)
+                                    </label>
+                                    <select 
+                                      id={`reason-select-${group.id}`}
+                                      value={noPurchaseReasonInput}
                                       onChange={e => setNoPurchaseReasonInput(e.target.value)}
                                       className="w-full bg-white border border-slate-300 rounded px-2 py-1 text-xs mb-2 focus:outline-hidden"
-                                    />
-                                  )}
+                                    >
+                                      <option value="">Seleccione motivo...</option>
+                                      <option value="Muy caro">Precio elevado (Muy caro)</option>
+                                      <option value="Falta de stock">No hay stock disponible</option>
+                                      <option value="No responde">No volvió a responder WhatsApp</option>
+                                      <option value="Costo de envío">Costo de envío elevado</option>
+                                      <option value="Demora entrega">Tiempo de entrega prolongado</option>
+                                      <option value="Otro">Otro motivo</option>
+                                    </select>
+                                    
+                                    {noPurchaseReasonInput === 'Otro' && (
+                                      <input 
+                                        id={`custom-reason-${group.id}`}
+                                        type="text"
+                                        placeholder="Especificar motivo..."
+                                        onChange={e => setNoPurchaseReasonInput(e.target.value)}
+                                        className="w-full bg-white border border-slate-300 rounded px-2 py-1 text-xs mb-2 focus:outline-hidden"
+                                      />
+                                    )}
 
-                                  <div className="flex justify-end gap-1.5">
-                                    <button 
-                                      id={`btn-cancel-reason-${o.id}`}
-                                      onClick={() => setSelectedOrderForCancel(null)}
-                                      className="px-2 py-1 bg-slate-200 hover:bg-slate-300 rounded text-[10px] font-bold"
-                                    >
-                                      Cancelar
-                                    </button>
-                                    <button 
-                                      id={`btn-confirm-no-buy-${o.id}`}
-                                      onClick={() => handleUpdateOrderStatus(o.id || '', 'No compró', noPurchaseReasonInput || 'No especificado')}
-                                      className="px-2.5 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded text-[10px] font-bold disabled:opacity-50"
-                                      disabled={!noPurchaseReasonInput}
-                                    >
-                                      Confirmar
-                                    </button>
+                                    <div className="flex justify-end gap-1.5">
+                                      <button 
+                                        id={`btn-cancel-reason-${group.id}`}
+                                        onClick={() => setSelectedOrderForCancel(null)}
+                                        className="px-2 py-1 bg-slate-200 hover:bg-slate-300 rounded text-[10px] font-bold"
+                                      >
+                                        Cancelar
+                                      </button>
+                                      <button 
+                                        id={`btn-confirm-no-buy-${group.id}`}
+                                        onClick={() => handleUpdateGroupOrderStatus(group.id, group.items, 'No compró', noPurchaseReasonInput || 'No especificado')}
+                                        className="px-2.5 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded text-[10px] font-bold disabled:opacity-50"
+                                        disabled={!noPurchaseReasonInput}
+                                      >
+                                        Confirmar
+                                      </button>
+                                    </div>
                                   </div>
-                                </div>
-                              ) : (
-                                <div className="flex items-center justify-end gap-1.5">
-                                  {o.status === 'En seguimiento' && (
-                                    <>
+                                ) : (
+                                  <div className="flex items-center justify-end gap-1.5">
+                                    {group.status === 'En seguimiento' && (
+                                      <>
+                                        <button
+                                          id={`btn-close-sale-${group.id}`}
+                                          onClick={() => handleUpdateGroupOrderStatus(group.id, group.items, 'Venta cerrada')}
+                                          className="bg-emerald-600 hover:bg-emerald-700 text-white font-mono text-[11px] font-bold px-2 py-1 rounded transition-colors whitespace-nowrap"
+                                        >
+                                          ✓ Despachar Carrito
+                                        </button>
+                                        <button
+                                          id={`btn-reject-sale-${group.id}`}
+                                          onClick={() => setSelectedOrderForCancel(group.id)}
+                                          className="bg-rose-100 hover:bg-rose-200 text-rose-700 font-mono text-[11px] font-bold px-2 py-1 rounded transition-colors whitespace-nowrap"
+                                        >
+                                          ✗ No Compró
+                                        </button>
+                                      </>
+                                    )}
+                                    {group.status !== 'En seguimiento' && (
                                       <button
-                                        id={`btn-close-sale-${o.id}`}
-                                        onClick={() => handleUpdateOrderStatus(o.id || '', 'Venta cerrada')}
-                                        className="bg-emerald-600 hover:bg-emerald-700 text-white font-mono text-[11px] font-bold px-2 py-1 rounded transition-colors"
+                                        id={`btn-reopen-${group.id}`}
+                                        onClick={() => handleUpdateGroupOrderStatus(group.id, group.items, 'En seguimiento')}
+                                        className="text-slate-400 hover:text-slate-600 font-mono text-[11px] underline whitespace-nowrap"
                                       >
-                                        ✓ Venta Cerrada
+                                        Reabrir caso
                                       </button>
-                                      <button
-                                        id={`btn-reject-sale-${o.id}`}
-                                        onClick={() => setSelectedOrderForCancel(o.id || null)}
-                                        className="bg-rose-100 hover:bg-rose-200 text-rose-700 font-mono text-[11px] font-bold px-2 py-1 rounded transition-colors"
-                                      >
-                                        ✗ No Compró
-                                      </button>
-                                    </>
-                                  )}
-                                  {o.status !== 'En seguimiento' && (
-                                    <button
-                                      id={`btn-reopen-${o.id}`}
-                                      onClick={() => handleUpdateOrderStatus(o.id || '', 'En seguimiento')}
-                                      className="text-slate-400 hover:text-slate-600 font-mono text-[11px] underline"
-                                    >
-                                      Reabrir caso
-                                    </button>
-                                  )}
-                                </div>
-                              )}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              )}
+                                    )}
+                                  </div>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                );
+              })()}
             </div>
           )}
 
@@ -1025,6 +1115,20 @@ export const AdminPanel: React.FC = () => {
                         placeholder="Ej: Kit de arrastre Velkor para Yamaha FZ16"
                         value={prodName}
                         onChange={e => setProdName(e.target.value)}
+                        className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 rounded-lg px-3 py-2 text-sm focus:outline-hidden"
+                      />
+                    </div>
+
+                    {/* Product Code */}
+                    <div>
+                      <label className="block text-xs font-mono uppercase text-slate-500 mb-1 font-bold">Código del Repuesto (Código/SKU) *</label>
+                      <input 
+                        id="form-prod-code"
+                        type="text"
+                        required
+                        placeholder="Ej: VK-4028-FZ"
+                        value={prodCode}
+                        onChange={e => setProdCode(e.target.value)}
                         className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 rounded-lg px-3 py-2 text-sm focus:outline-hidden"
                       />
                     </div>
@@ -1418,7 +1522,14 @@ export const AdminPanel: React.FC = () => {
                                   }`}>
                                     {p.status}
                                   </span>
-                                  <p className="font-bold text-slate-900 line-clamp-1">{p.name}</p>
+                                  <p className="font-bold text-slate-900 line-clamp-1">
+                                    {p.code && (
+                                      <span className="text-emerald-600 font-mono text-[11px] font-black mr-1.5 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100">
+                                        {p.code}
+                                      </span>
+                                    )}
+                                    {p.name}
+                                  </p>
                                   <p className="text-xs text-slate-400 line-clamp-1 italic mt-0.5">{p.description}</p>
                                   
                                   {/* Optional metadata blocks for colors and brands */}
