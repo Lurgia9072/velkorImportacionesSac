@@ -21,16 +21,10 @@ const firebaseConfig = {
   messagingSenderId: "881230974520",
   appId: "1:881230974520:web:06cef873d4a78ec0efe0cd",
   measurementId: "G-NQF14FRXPH"
-
 };
 
 const app = initializeApp(firebaseConfig);
-export const db = getFirestore(app, "ai-studio-velkorimportacio-f94654ae-d98e-4957-a050-ec1498ea4506");
-
-// Seed data to make the initial experience rich and professional
-const SEED_PRODUCTS: Omit<Product, 'id'>[] = [
- 
-];
+export const db = getFirestore(app);
 
 export async function getProducts(): Promise<Product[]> {
   try {
@@ -39,24 +33,6 @@ export async function getProducts(): Promise<Product[]> {
     querySnapshot.forEach((docSnap) => {
       products.push({ id: docSnap.id, ...docSnap.data() } as Product);
     });
-    
-    // Auto-seed if database is empty
-    if (products.length === 0) {
-      console.log("No products found in Firestore. Seeding database with initial motorcycle parts...");
-      const batch = writeBatch(db);
-      const seeded: Product[] = [];
-      
-      for (const p of SEED_PRODUCTS) {
-        const docRef = doc(collection(db, 'products'));
-        batch.set(docRef, p);
-        seeded.push({ id: docRef.id, ...p } as Product);
-      }
-      
-      await batch.commit();
-      console.log("Successfully seeded 9 initial products into Firestore.");
-      return seeded;
-    }
-    
     return products;
   } catch (error) {
     console.error("Error getting products from Firestore:", error);

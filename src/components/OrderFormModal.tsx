@@ -17,7 +17,7 @@ export const OrderFormModal: React.FC<OrderFormModalProps> = ({ product, quantit
   const [region, setRegion] = useState('Lima'); // Peruvian region tracking
   const [requestType, setRequestType] = useState<Order['requestType']>('Compra directa');
   const [paymentMethod, setPaymentMethod] = useState<Order['paymentMethod']>('20% adelanto / 80% entrega');
-  const [whatsappNumber, setWhatsappNumber] = useState('999999999'); // Default Peruvian number placeholder, editable for testing
+  const [whatsappNumber, setWhatsappNumber] = useState('+51 970329450'); // Default Peruvian number placeholder, editable for testing
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -288,7 +288,8 @@ Pago: ${paymentMethod}`;
                 <input 
                   id="input-whatsapp-target"
                   type="text"
-                  placeholder="Ej: 999999999"
+                  disabled={true}
+                  placeholder="Ej: +51970329450"
                   value={whatsappNumber}
                   onChange={e => setWhatsappNumber(e.target.value)}
                   className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 rounded-lg px-3 py-1.5 text-xs font-mono focus:outline-hidden transition-colors text-slate-700"
