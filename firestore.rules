@@ -1,0 +1,16 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Products Collection: Publicly readable; writable for admin controls
+    match /products/{productId} {
+      allow read: if true;
+      allow write: if true;
+    }
+    
+    // Orders Collection: Publicly writable (for clients placing orders); readable and writable for tracking
+    match /orders/{orderId} {
+      allow read, write: if true;
+    }
+  }
+}

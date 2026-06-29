@@ -1,0 +1,6 @@
+{
+  "name": "Velkor Importaciones",
+  "description": "Catálogo inteligente de repuestos de motos, gestión de pedidos por WhatsApp y panel administrativo para Velkor Importaciones S.A.C.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

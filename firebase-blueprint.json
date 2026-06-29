@@ -1,0 +1,54 @@
+{
+  "entities": {
+    "products": {
+      "title": "Product",
+      "description": "Repuestos y accesorios de motos",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "price": { "type": "number" },
+        "showPrice": { "type": "boolean" },
+        "category": { "type": "string" },
+        "status": { "type": "string", "enum": ["Nuevo", "Promoción", "Importación próxima", "Catálogo general"] },
+        "description": { "type": "string" },
+        "stock": { "type": "number" },
+        "imageUrl": { "type": "string" },
+        "views": { "type": "number" },
+        "sales": { "type": "number" }
+      },
+      "required": ["name", "category", "status", "description"]
+    },
+    "orders": {
+      "title": "Order",
+      "description": "Pedidos de clientes",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "customerName": { "type": "string" },
+        "customerPhone": { "type": "string" },
+        "deliveryAddress": { "type": "string" },
+        "productId": { "type": "string" },
+        "productName": { "type": "string" },
+        "productPrice": { "type": "number" },
+        "quantity": { "type": "number" },
+        "requestType": { "type": "string", "enum": ["Compra directa", "Consulta", "Cotización"] },
+        "paymentMethod": { "type": "string", "enum": ["50/50", "20% adelanto / 80% entrega", "Otro"] },
+        "status": { "type": "string", "enum": ["En seguimiento", "Venta cerrada", "No compró"] },
+        "noPurchaseReason": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["customerName", "customerPhone", "deliveryAddress", "productId", "productName", "quantity", "requestType", "paymentMethod", "status"]
+    }
+  },
+  "firestore": {
+    "products/{productId}": {
+      "schema": "products",
+      "description": "Colección de productos del catálogo de Velkor Importaciones"
+    },
+    "orders/{orderId}": {
+      "schema": "orders",
+      "description": "Colección de pedidos y cotizaciones de clientes"
+    }
+  }
+}
