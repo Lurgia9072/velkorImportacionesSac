@@ -5,6 +5,7 @@ import { ProductCard } from './components/ProductCard';
 import { ProductDetailsModal } from './components/ProductDetailsModal';
 import { OrderFormModal } from './components/OrderFormModal';
 import { AdminPanel } from './components/AdminPanel';
+const velkorBannerBg = '/assets/images/velkor_banner.png';
 import { 
   Wrench, 
   Search, 
@@ -25,7 +26,7 @@ import {
 
 export default function App() {
   // Navigation: 'catalog' | 'history' | 'admin'
-  const [activeView, setActiveView] = useState<'catalog' | 'history' | 'admin'>('catalog');
+  const [activeView, setActiveView] = useState<'catalog' | 'history' | 'admin'>('catalog') as any;
 
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -208,39 +209,67 @@ export default function App() {
         </div>
       </header>
 
-      {/* 2. Main Content Container */}
+      {/* 2. Full-width Hero Banner (Active only on Catalog view) */}
+      {activeView === 'catalog' && (
+        <div 
+          id="hero-banner"
+          className="relative w-full bg-cover bg-center overflow-hidden min-h-[380px] md:h-[450px] border-b border-neutral-900 flex items-center py-10"
+          style={{ backgroundImage: `url(${velkorBannerBg})` }}
+        >
+          {/* Overlay to darken background for high contrast text readability */}
+          <div className="absolute inset-0" />
+          
+          <div className="relative z-10 max-w-7xl w-full mx-auto px-4 sm:px-6 flex flex-col justify-center text-left space-y-4 md:space-y-6">
+            <div className="space-y-2 md:space-y-3">
+              <span className="inline-block bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 text-[10px] md:text-xs font-mono font-black px-3 py-1 rounded-full uppercase tracking-widest">
+                🇨🇳 IMPORTACIÓN CHINA EN CAMINO
+              </span>
+              <h1 className="text-4xl sm:text-5xl md:text-6xl font-display font-black tracking-tight uppercase leading-none">
+                VELKOR <span className="text-emerald-500">IMPORTACIONES</span>
+              </h1>
+              <p className="text-lg sm:text-xl md:text-2xl font-semibold text-neutral-200 tracking-wide font-sans capitalize">
+                repuestos y accesorios para todo tipo de motos
+              </p>
+            </div>
+            
+            <p className="text-sm md:text-base  max-w-2xl leading-relaxed font-sans first-letter:uppercase">
+              productos de alta calidad, al mejor precio y con la confianza que tu negocio necesita
+            </p>
+
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-neutral-900/90 border border-neutral-800 text-neutral-300 text-xs rounded-lg font-bold font-mono w-fit uppercase">
+                ⭐ venta por mayor y menor
+              </span>
+            </div>
+
+            <div className="pt-2">
+              <button 
+                id="hero-scroll-to-products"
+                onClick={() => {
+                  const element = document.getElementById('catalog-filters-section');
+                  if (element) {
+                    element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                  }
+                }}
+                className="inline-flex items-center gap-2 bg-emerald-500 hover:bg-emerald-400 text-black font-display font-black text-xs md:text-sm px-6 py-3.5 rounded-xl shadow-lg shadow-emerald-500/20 hover:shadow-emerald-500/40 transition-all font-mono uppercase tracking-wider group"
+              >
+                Ver Catálogo de Repuestos
+                <ChevronRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 3. Main Content Container */}
       <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6">
         
         {/* ==================== VIEW A: CATALOG ==================== */}
         {activeView === 'catalog' && (
           <div id="catalog-view" className="space-y-6 animate-fadeIn">
             
-            {/* China Import Campaign Hero Announcement Banner */}
-            <div className="bento-card relative bg-[#111111] text-white p-5 md:p-6 border border-neutral-800 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 overflow-hidden">
-              <div className="absolute top-0 right-0 w-36 h-36 bg-emerald-500/10 rounded-full blur-2xl" />
-              <div className="space-y-2 relative z-10">
-                <span className="bg-emerald-500 text-black text-[9px] font-mono font-black px-2.5 py-1 rounded-sm uppercase tracking-widest">
-                  🇨🇳 IMPORTACIÓN CHINA EN CAMINO
-                </span>
-                <h2 className="text-xl md:text-2xl font-display font-black tracking-tight leading-tight text-white">
-                  Asegura Stock Mayorista con un 20% de Adelanto
-                </h2>
-                <p className="text-neutral-400 text-xs md:text-sm max-w-2xl leading-relaxed">
-                  Estamos importando contenedores directo desde las mejores fábricas chinas. Reserva los repuestos del catálogo catalogados como <strong>"Por Llegar"</strong> para asegurar precios preferenciales.
-                </p>
-              </div>
-              <button 
-                id="hero-see-upcoming"
-                onClick={() => { setSelectedStatus('Importación próxima'); }}
-                className="bg-emerald-500 hover:bg-emerald-400 text-black font-display font-extrabold text-xs px-5 py-3 rounded-xl shadow-lg hover:shadow-emerald-500/10 transition-all flex items-center gap-1.5 whitespace-nowrap self-stretch md:self-auto justify-center font-mono uppercase tracking-wider"
-              >
-                Ver por llegar
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
-
             {/* Catalog Filter controls (Search & Filters Row) */}
-            <div className="bg-[#111111] border border-neutral-800 rounded-2xl p-4 shadow-xs space-y-4">
+            <div id="catalog-filters-section" className="bg-[#111111] border border-neutral-800 rounded-2xl p-4 shadow-xs space-y-4 scroll-mt-24">
               <div className="flex flex-col md:flex-row gap-3">
                 {/* Search Bar Input */}
                 <div className="flex-1 relative">
