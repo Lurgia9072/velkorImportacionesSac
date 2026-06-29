@@ -33,7 +33,9 @@ import {
   UserCheck,
   UserX,
   MessageSquare,
-  Sliders
+  Sliders,
+  Upload,
+  Image
 } from 'lucide-react';
 
 export const AdminPanel: React.FC = () => {
@@ -60,6 +62,7 @@ export const AdminPanel: React.FC = () => {
   const [prodDescription, setProdDescription] = useState('');
   const [prodStock, setProdStock] = useState(10);
   const [prodImageUrl, setProdImageUrl] = useState('');
+  const [prodImageUrls, setProdImageUrls] = useState<string[]>([]);
   
   // Custom optional fields for product management
   const [prodColors, setProdColors] = useState('');
@@ -67,6 +70,100 @@ export const AdminPanel: React.FC = () => {
   const [prodWholesalePrice, setProdWholesalePrice] = useState<number>(0);
   const [prodRetailPrice, setProdRetailPrice] = useState<number>(0);
   const [prodArrivalDate, setProdArrivalDate] = useState('');
+
+  // Image upload and processing states
+  const [isDragging, setIsDragging] = useState(false);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+
+  const processImageFiles = async (files: FileList | File[]) => {
+    if (!files || files.length === 0) return;
+    
+    setIsUploadingImage(true);
+    const newUrls: string[] = [];
+    
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      if (!file.type.startsWith('image/')) {
+        alert(`El archivo "${file.name}" no es una imagen válida y será omitido.`);
+        continue;
+      }
+      
+      try {
+        const dataUrl = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = (event) => {
+            const img = new window.Image();
+            img.onload = () => {
+              // Compress using canvas to keep within Firestore limits
+              const canvas = document.createElement('canvas');
+              const MAX_WIDTH = 800;
+              const MAX_HEIGHT = 800;
+              let width = img.width;
+              let height = img.height;
+              
+              if (width > height) {
+                if (width > MAX_WIDTH) {
+                  height *= MAX_WIDTH / width;
+                  width = MAX_WIDTH;
+                }
+              } else {
+                if (height > MAX_HEIGHT) {
+                  width *= MAX_HEIGHT / height;
+                  height = MAX_HEIGHT;
+                }
+              }
+              
+              canvas.width = width;
+              canvas.height = height;
+              const ctx = canvas.getContext('2d');
+              if (ctx) {
+                ctx.drawImage(img, 0, 0, width, height);
+                resolve(canvas.toDataURL('image/jpeg', 0.85));
+              } else {
+                reject(new Error('Canvas context is null'));
+              }
+            };
+            img.onerror = () => reject(new Error('Error al cargar la imagen'));
+            img.src = event.target?.result as string;
+          };
+          reader.onerror = () => reject(new Error('Error de FileReader'));
+          reader.readAsDataURL(file);
+        });
+        
+        newUrls.push(dataUrl);
+      } catch (err) {
+        console.error('Error procesando imagen:', file.name, err);
+      }
+    }
+    
+    if (newUrls.length > 0) {
+      setProdImageUrls(prev => [...prev, ...newUrls]);
+    }
+    setIsUploadingImage(false);
+  };
+
+  const handleImageFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      processImageFiles(e.target.files);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = () => {
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    if (e.dataTransfer.files) {
+      processImageFiles(e.dataTransfer.files);
+    }
+  };
 
   // Filtering inventory lists
   const [inventoryFilterStatus, setInventoryFilterStatus] = useState<string>('Todos');
@@ -150,6 +247,7 @@ export const AdminPanel: React.FC = () => {
     setProdDescription('');
     setProdStock(10);
     setProdImageUrl('');
+    setProdImageUrls([]);
     setProdColors('');
     setProdMotorcycleBrands('');
     setProdWholesalePrice(0);
@@ -168,6 +266,7 @@ export const AdminPanel: React.FC = () => {
     setProdDescription(p.description);
     setProdStock(p.stock || 0);
     setProdImageUrl(p.imageUrl);
+    setProdImageUrls(p.imageUrls || (p.imageUrl ? [p.imageUrl] : []));
     setProdColors(p.colors || '');
     setProdMotorcycleBrands(p.motorcycleBrands || '');
     setProdWholesalePrice(p.wholesalePrice || p.price || 0);
@@ -183,6 +282,8 @@ export const AdminPanel: React.FC = () => {
       return;
     }
 
+    const firstImage = prodImageUrls.length > 0 ? prodImageUrls[0] : (prodImageUrl || 'https://images.unsplash.com/photo-1609630875171-b1321377ee65?auto=format&fit=crop&w=600&q=80');
+
     const payload: Omit<Product, 'id'> = {
       name: prodName,
       price: Number(prodWholesalePrice), // keep general price in sync with wholesale
@@ -191,7 +292,8 @@ export const AdminPanel: React.FC = () => {
       status: prodStatus,
       description: prodDescription,
       stock: Number(prodStock),
-      imageUrl: prodImageUrl || 'https://images.unsplash.com/photo-1609630875171-b1321377ee65?auto=format&fit=crop&w=600&q=80',
+      imageUrl: firstImage,
+      imageUrls: prodImageUrls,
       colors: prodColors,
       motorcycleBrands: prodMotorcycleBrands,
       wholesalePrice: Number(prodWholesalePrice),
@@ -915,7 +1017,7 @@ export const AdminPanel: React.FC = () => {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {/* Name */}
                     <div>
-                      <label className="block text-xs font-mono uppercase text-slate-500 mb-1">Nombre Comercial del Repuesto *</label>
+                      <label className="block text-xs font-mono uppercase text-slate-500 mb-1 font-bold">Nombre Comercial del Repuesto *</label>
                       <input 
                         id="form-prod-name"
                         type="text"
@@ -927,17 +1029,158 @@ export const AdminPanel: React.FC = () => {
                       />
                     </div>
 
-                    {/* Image URL */}
-                    <div>
-                      <label className="block text-xs font-mono uppercase text-slate-500 mb-1">URL de la Imagen (Foto) *</label>
-                      <input 
-                        id="form-prod-image"
-                        type="url"
-                        placeholder="Pegue la URL de la imagen (Unsplash o similar)"
-                        value={prodImageUrl}
-                        onChange={e => setProdImageUrl(e.target.value)}
-                        className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 rounded-lg px-3 py-2 text-sm focus:outline-hidden"
-                      />
+                    {/* Image Upload & Preview Grid */}
+                    <div className="md:col-span-2 bg-slate-50 p-5 rounded-xl border border-slate-200">
+                      <div className="flex items-center justify-between mb-3 border-b border-slate-200 pb-2">
+                        <div>
+                          <label className="block text-xs font-mono uppercase text-slate-700 font-bold">Galería de Fotos del Repuesto *</label>
+                          <p className="text-[10px] text-slate-500 font-mono mt-0.5">Puedes subir varias fotos. La primera foto será la portada principal.</p>
+                        </div>
+                        {prodImageUrls.length > 0 && (
+                          <span className="text-[11px] font-mono font-bold bg-slate-200 text-slate-700 px-2.5 py-1 rounded-md">
+                            {prodImageUrls.length} {prodImageUrls.length === 1 ? 'Foto' : 'Fotos'}
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        {/* Drag and Drop Box */}
+                        <div className="md:col-span-1">
+                          <div
+                            onDragOver={handleDragOver}
+                            onDragLeave={handleDragLeave}
+                            onDrop={handleDrop}
+                            className={`relative border-2 border-dashed rounded-xl p-4 text-center cursor-pointer transition-all flex flex-col items-center justify-center h-44 ${
+                              isDragging 
+                                ? 'border-emerald-500 bg-emerald-50 text-emerald-700' 
+                                : 'border-slate-300 bg-white text-slate-500 hover:border-emerald-400'
+                            }`}
+                          >
+                            <input 
+                              type="file" 
+                              id="form-prod-image-file"
+                              accept="image/*"
+                              multiple
+                              onChange={handleImageFileChange}
+                              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                            />
+                            {isUploadingImage ? (
+                              <div className="flex flex-col items-center">
+                                <RefreshCw className="w-8 h-8 text-emerald-500 animate-spin mb-2" />
+                                <span className="text-xs font-mono text-slate-500">Procesando fotos...</span>
+                              </div>
+                            ) : (
+                              <div className="flex flex-col items-center">
+                                <Upload className="w-8 h-8 text-slate-400 mb-2" />
+                                <span className="text-xs font-mono font-bold text-slate-700 block">Subir Fotos</span>
+                                <span className="text-[10px] text-emerald-600 underline font-semibold mt-1">Haz clic o arrastra</span>
+                                <span className="text-[9px] text-slate-400 mt-1 block font-mono">Permite subir varias</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Gallery Thumbnails List */}
+                        <div className="md:col-span-2 flex flex-col justify-between">
+                          <span className="block text-[11px] font-mono uppercase text-slate-500 mb-1.5 font-bold">Administrar Fotos</span>
+                          {prodImageUrls.length > 0 ? (
+                            <div className="grid grid-cols-3 gap-3 overflow-y-auto max-h-[140px] pr-1">
+                              {prodImageUrls.map((url, index) => (
+                                <div key={index} className="relative aspect-square border border-slate-200 rounded-lg overflow-hidden bg-white group shadow-xs">
+                                  <img 
+                                    src={url} 
+                                    alt={`Foto ${index + 1}`} 
+                                    className="w-full h-full object-cover"
+                                  />
+                                  {index === 0 && (
+                                    <span className="absolute top-1 left-1 bg-emerald-500 text-white font-mono text-[8px] font-black px-1.5 py-0.5 rounded shadow-xs uppercase tracking-wider">
+                                      Portada
+                                    </span>
+                                  )}
+                                  
+                                  {/* Hover Actions */}
+                                  <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1.5 p-1 z-10">
+                                    {index !== 0 && (
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setProdImageUrls(prev => {
+                                            const updated = [...prev];
+                                            const item = updated.splice(index, 1)[0];
+                                            updated.unshift(item); // make it first (main)
+                                            return updated;
+                                          });
+                                        }}
+                                        className="bg-emerald-500 hover:bg-emerald-600 text-slate-950 text-[9px] font-black py-0.5 px-1.5 rounded transition-all shadow-md font-mono"
+                                      >
+                                        Principal
+                                      </button>
+                                    )}
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setProdImageUrls(prev => prev.filter((_, idx) => idx !== index));
+                                      }}
+                                      className="bg-rose-600 hover:bg-rose-700 text-white text-[9px] font-black py-0.5 px-1.5 rounded transition-all shadow-md font-mono"
+                                    >
+                                      Eliminar
+                                    </button>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="border border-slate-200 rounded-xl h-28 bg-white flex flex-col items-center justify-center text-center p-4">
+                              <Image className="w-8 h-8 text-slate-300 mb-1" />
+                              <p className="text-[10px] text-slate-400 font-mono">No hay fotos en la galería aún.</p>
+                              <p className="text-[9px] text-slate-400 font-mono mt-0.5">Sube al menos una foto para mostrar en el catálogo.</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Dropdown for Manual URL */}
+                      <div className="mt-3 pt-3 border-t border-slate-200/60">
+                        <details className="text-left text-xs text-slate-400 select-none cursor-pointer">
+                          <summary className="hover:text-emerald-600 font-mono text-[10px] uppercase font-bold">Opciones avanzadas (Ingresar URLs de internet manualmente)</summary>
+                          <div className="mt-2 p-3 bg-white border border-slate-200 rounded-lg space-y-2">
+                            <label className="block text-[11px] font-mono uppercase text-slate-500 font-bold">Agregar URL de imagen:</label>
+                            <div className="flex gap-2">
+                              <input 
+                                id="form-prod-image-manual-input"
+                                type="url"
+                                placeholder="https://ejemplo.com/mifoto.jpg"
+                                className="flex-1 bg-slate-50 border border-slate-200 focus:border-emerald-500 rounded-lg px-3 py-1.5 text-xs font-mono"
+                                onKeyDown={e => {
+                                  if (e.key === 'Enter') {
+                                    e.preventDefault();
+                                    const val = (e.target as HTMLInputElement).value.trim();
+                                    if (val) {
+                                      setProdImageUrls(prev => [...prev, val]);
+                                      (e.target as HTMLInputElement).value = '';
+                                    }
+                                  }
+                                }}
+                              />
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const input = document.getElementById('form-prod-image-manual-input') as HTMLInputElement;
+                                  const val = input?.value.trim();
+                                  if (val) {
+                                    setProdImageUrls(prev => [...prev, val]);
+                                    input.value = '';
+                                  }
+                                }}
+                                className="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-mono font-bold px-3 py-1.5 rounded-lg border border-slate-200"
+                              >
+                                Agregar
+                              </button>
+                            </div>
+                            <p className="text-[9px] text-slate-400 font-mono leading-tight">Presiona Enter o haz clic en Agregar. Puedes agregar tantas URLs externas como desees.</p>
+                          </div>
+                        </details>
+                      </div>
                     </div>
                   </div>
 

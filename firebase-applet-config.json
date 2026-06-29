@@ -1,10 +1,10 @@
 {
-  "projectId": "ai-studio-applet-webapp-53d2e",
-  "appId": "1:75713693883:web:a1e5a17d49f8a867c2019e",
-  "apiKey": "AIzaSyD7zcSmxo6m8n2rWzGFxql3Vn-WOFSd4qA",
-  "authDomain": "ai-studio-applet-webapp-53d2e.firebaseapp.com",
+  "projectId": "velkor-importaciones-sac",
+  "appId": "1:881230974520:web:06cef873d4a78ec0efe0cd",
+  "apiKey": "AIzaSyBnzxk_ho1l0Kd0cTmsveizSkx4zdeAReM",
+  "authDomain": "velkor-importaciones-sac.firebaseapp.com",
   "firestoreDatabaseId": "ai-studio-velkorimportacio-f94654ae-d98e-4957-a050-ec1498ea4506",
-  "storageBucket": "ai-studio-applet-webapp-53d2e.firebasestorage.app",
-  "messagingSenderId": "75713693883",
-  "measurementId": ""
+  "storageBucket": "velkor-importaciones-sac.firebasestorage.app",
+  "messagingSenderId": "881230974520",
+  "measurementId": "G-NQF14FRXPH"
 }

@@ -8,6 +8,7 @@ export interface Product {
   description: string;
   stock?: number;
   imageUrl: string;
+  imageUrls?: string[]; // Multiple photos gallery
   views?: number;
   sales?: number;
   colors?: string;            // Optional: colors of the item

@@ -11,12 +11,16 @@ interface ProductDetailsModalProps {
 
 export const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({ product, onClose, onOrder }) => {
   const [quantity, setQuantity] = useState(1);
+  const images = product.imageUrls && product.imageUrls.length > 0 ? product.imageUrls : [product.imageUrl];
+  const [activeImage, setActiveImage] = useState(images[0] || product.imageUrl);
 
   useEffect(() => {
     if (product.id) {
       incrementProductView(product.id);
     }
-  }, [product.id]);
+    const imgs = product.imageUrls && product.imageUrls.length > 0 ? product.imageUrls : [product.imageUrl];
+    setActiveImage(imgs[0] || product.imageUrl);
+  }, [product]);
 
   const handleIncrement = () => {
     setQuantity(prev => prev + 1);
@@ -49,28 +53,54 @@ export const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({ produc
         <div className="overflow-y-auto flex-1 p-6 md:p-8">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
             {/* Image Column */}
-            <div className="relative rounded-xl overflow-hidden bg-slate-50 border border-slate-200 aspect-square flex items-center justify-center">
-              <img 
-                src={product.imageUrl} 
-                alt={product.name} 
-                referrerPolicy="no-referrer"
-                className="w-full h-full object-cover"
-              />
-              {/* Badges on detail */}
-              {product.status === 'Nuevo' && (
-                <span className="absolute top-3 left-3 status-tag tag-new shadow-md flex items-center gap-1 uppercase">
-                  <Sparkles className="w-3 h-3" /> Nuevo
-                </span>
-              )}
-              {product.status === 'Promoción' && (
-                <span className="absolute top-3 left-3 status-tag tag-promo shadow-md flex items-center gap-1 uppercase">
-                  <Flame className="w-3 h-3" /> Promoción
-                </span>
-              )}
-              {product.status === 'Importación próxima' && (
-                <span className="absolute top-3 left-3 status-tag tag-china shadow-md flex items-center gap-1 uppercase">
-                  <Calendar className="w-3 h-3" /> Por Llegar
-                </span>
+            <div className="flex flex-col gap-3">
+              <div className="relative rounded-xl overflow-hidden bg-slate-50 border border-slate-200 aspect-square flex items-center justify-center">
+                <img 
+                  src={activeImage} 
+                  alt={product.name} 
+                  referrerPolicy="no-referrer"
+                  className="w-full h-full object-contain"
+                />
+                {/* Badges on detail */}
+                {product.status === 'Nuevo' && (
+                  <span className="absolute top-3 left-3 status-tag tag-new shadow-md flex items-center gap-1 uppercase">
+                    <Sparkles className="w-3 h-3" /> Nuevo
+                  </span>
+                )}
+                {product.status === 'Promoción' && (
+                  <span className="absolute top-3 left-3 status-tag tag-promo shadow-md flex items-center gap-1 uppercase">
+                    <Flame className="w-3 h-3" /> Promoción
+                  </span>
+                )}
+                {product.status === 'Importación próxima' && (
+                  <span className="absolute top-3 left-3 status-tag tag-china shadow-md flex items-center gap-1 uppercase">
+                    <Calendar className="w-3 h-3" /> Por Llegar
+                  </span>
+                )}
+              </div>
+
+              {/* Thumbnails list if there is more than 1 image */}
+              {images.length > 1 && (
+                <div className="flex gap-2 overflow-x-auto py-1 scrollbar-thin">
+                  {images.map((img, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => setActiveImage(img)}
+                      className={`relative w-14 h-14 rounded-lg overflow-hidden border-2 bg-white flex-shrink-0 transition-all ${
+                        activeImage === img 
+                          ? 'border-emerald-500 shadow-sm' 
+                          : 'border-slate-200 hover:border-slate-300'
+                      }`}
+                    >
+                      <img 
+                        src={img} 
+                        alt={`${product.name} thumbnail ${idx + 1}`} 
+                        className="w-full h-full object-cover"
+                      />
+                    </button>
+                  ))}
+                </div>
               )}
             </div>
  

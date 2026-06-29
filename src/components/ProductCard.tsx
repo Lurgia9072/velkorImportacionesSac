@@ -1,6 +1,6 @@
 import React from 'react';
 import { Product } from '../types';
-import { Eye, Flame, Calendar, Sparkles, MessageCircle, Info } from 'lucide-react';
+import { Eye, Flame, Calendar, Sparkles, MessageCircle, Info, Images } from 'lucide-react';
 
 interface ProductCardProps {
   product: Product;
@@ -56,6 +56,14 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onSelect, onO
         
         {/* Status Badge */}
         {getStatusBadge()}
+
+        {/* Gallery count indicator */}
+        {product.imageUrls && product.imageUrls.length > 1 && (
+          <span className="absolute bottom-3 left-3 bg-black/60 backdrop-blur-xs text-white text-[10px] font-mono px-2 py-0.5 rounded flex items-center gap-1.5 z-10">
+            <Images className="w-3.5 h-3.5 text-emerald-400" />
+            1/{product.imageUrls.length}
+          </span>
+        )}
  
         {/* Views Indicator */}
         {product.views !== undefined && product.views > 0 && (
