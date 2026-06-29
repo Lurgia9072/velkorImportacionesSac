@@ -577,9 +577,94 @@ export default function App() {
       </main>
 
       {/* 3. Footer / Corporate Credentials */}
-      <footer className="bg-black text-neutral-500 text-xs py-6 border-t border-neutral-900 text-center space-y-1 font-mono hidden md:block">
-        <p>© 2026 VELKOR IMPORTACIONES S.A.C. Todos los derechos reservados.</p>
-        <p className="text-[10px] text-neutral-600">RUC: 20609827412 — Lima, Perú — Importador Directo de China</p>
+      <footer className="bg-black text-neutral-400 text-xs py-10 pb-24 md:pb-12 border-t border-neutral-900 font-mono">
+        <div className="max-w-7xl mx-auto px-4 md:px-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-center md:text-left mb-8">
+            
+            {/* Column 1: Brand details */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-center md:justify-start gap-2">
+                <div className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse" />
+                <span className="text-white font-display font-black tracking-wider uppercase text-sm">VELKOR IMPORTACIONES</span>
+              </div>
+              <p className="text-neutral-500 text-xs font-sans max-w-sm mx-auto md:mx-0">
+                Tu importador directo de repuestos de calidad premium desde China. Abastecemos al mercado mayorista de motocicletas en todo el Perú con los mejores precios y stock garantizado.
+              </p>
+              <p className="text-[10px] text-neutral-600">
+                RUC: 20609827412 — Lima, Perú
+              </p>
+            </div>
+
+            {/* Column 2: Social Media (TikTok, Facebook, WhatsApp) */}
+            <div className="space-y-4 flex flex-col items-center">
+              <span className="text-white font-display font-black tracking-wider uppercase text-xs">Conéctate con Nosotros</span>
+              <div className="flex justify-center gap-3">
+                {/* Facebook */}
+                <a 
+                  href="https://facebook.com" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center w-10 h-10 rounded-full bg-neutral-900 hover:bg-blue-600 hover:text-white border border-neutral-800 hover:border-blue-500 text-neutral-400 transition-all duration-300 transform hover:-translate-y-1 shadow-lg"
+                  title="Síguenos en Facebook"
+                >
+                  <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24">
+                    <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+                  </svg>
+                </a>
+
+                {/* TikTok */}
+                <a 
+                  href="https://tiktok.com" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center w-10 h-10 rounded-full bg-neutral-900 hover:bg-neutral-800 hover:text-white border border-neutral-800 hover:border-neutral-700 text-neutral-400 transition-all duration-300 transform hover:-translate-y-1 shadow-lg relative overflow-hidden group"
+                  title="Síguenos en TikTok"
+                >
+                  <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity bg-gradient-to-r from-cyan-400 via-transparent to-rose-500 -z-10" />
+                  <div className="absolute inset-[1px] bg-neutral-900 group-hover:bg-neutral-950 rounded-full -z-10" />
+                  
+                  <svg className="w-4 h-4 fill-current group-hover:text-white" viewBox="0 0 24 24">
+                    <path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.17-2.86-.6-4.05-1.45-.11-.08-.12-.04-.12.07-.02 2.78.01 5.56-.02 8.33-.12 2.11-.83 4.21-2.22 5.81-1.39 1.6-3.4 2.62-5.49 2.91-2.11.3-4.32-.1-6.11-1.25-1.79-1.15-3.07-3-3.49-5.08-.42-2.07-.01-4.3 1.11-6.04C3.84 8.65 5.76 7.42 7.89 7.1c1.55-.23 3.16-.01 4.59.62.09.04.12.02.12-.08-.01-1.37 0-2.75 0-4.13-.01-1.16-.01-2.31-.02-3.47h-.05zm-4.72 11c-.7.08-1.39.42-1.89.92-.51.5-.83 1.19-.91 1.89-.08.7.1 1.43.51 2.01.41.58 1.05.97 1.74 1.09.7.11 1.44-.01 2.04-.4.6-.39 1.04-1.01 1.21-1.71.18-.7.08-1.47-.28-2.11-.36-.65-.96-1.14-1.67-1.32-.24-.07-.54-.15-.75-.37v.09z"/>
+                  </svg>
+                </a>
+
+                {/* WhatsApp */}
+                <a 
+                  href="https://wa.me/51999999999" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center w-10 h-10 rounded-full bg-neutral-900 hover:bg-emerald-500 hover:text-white border border-neutral-800 hover:border-emerald-400 text-neutral-400 transition-all duration-300 transform hover:-translate-y-1 shadow-lg"
+                  title="Contáctanos por WhatsApp"
+                >
+                  <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24">
+                    <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946C.06 5.348 5.397.01 12.008.01c3.202.001 6.212 1.246 8.477 3.514 2.266 2.268 3.507 5.28 3.505 8.484-.004 6.657-5.34 11.997-11.953 11.997-2.005-.001-3.973-.502-5.724-1.455L0 24zm6.59-4.846c1.6.95 3.188 1.449 4.825 1.451 5.436 0 9.86-4.413 9.863-9.847.001-2.63-1.019-5.101-2.873-6.958C16.608 1.982 14.135.96 11.51.959c-5.44 0-9.866 4.415-9.868 9.851-.001 1.714.453 3.39 1.316 4.873L1.99 21.91l6.326-1.659zM17.56 14.5c-.327-.164-1.93-.955-2.229-1.062-.298-.11-.517-.164-.734.164-.217.327-.844 1.062-1.035 1.281-.19.219-.382.246-.71.082-.327-.164-1.383-.51-2.637-1.627-.974-.871-1.632-1.947-1.823-2.275-.19-.327-.02-.504.143-.667.148-.147.328-.382.492-.573.164-.191.218-.328.327-.546.11-.219.055-.41-.027-.573-.082-.164-.734-1.77-.101-1.93-.3-.1-.58-.1-.774-.1-.19 0-.492.07-.75.355-.258.283-.984.955-.984 2.33 0 1.375 1.004 2.703 1.144 2.893.14.19 1.976 3.018 4.786 4.227.669.288 1.191.46 1.598.59.673.214 1.285.184 1.768.111.54-.082 1.93-.791 2.203-1.52.274-.727.274-1.355.191-1.487-.083-.131-.299-.213-.627-.377z"/>
+                  </svg>
+                </a>
+              </div>
+              <p className="text-[10px] text-neutral-500 text-center font-sans">
+                ¿Tienes consultas? Envíanos un mensaje y te atenderemos al instante.
+              </p>
+            </div>
+
+            {/* Column 3: Logistics & Values */}
+            <div className="space-y-3 md:text-right">
+              <span className="text-white font-display font-black tracking-wider uppercase text-xs block">Nuestra Garantía</span>
+              <ul className="text-neutral-500 text-xs font-sans space-y-1.5">
+                <li>🚢 Importación Directa sin Intermediarios</li>
+                <li>📦 Pedidos consolidados y etiquetados</li>
+                <li>🔧 Repuestos de Motocicletas Certificados</li>
+                <li>🇵🇪 Distribución a todas las Regiones del Perú</li>
+              </ul>
+            </div>
+
+          </div>
+
+          {/* Bottom thin copyright bar */}
+          <div className="pt-6 border-t border-neutral-900/60 flex flex-col sm:flex-row items-center justify-between gap-4 text-center text-[10px] text-neutral-600">
+            <p>© 2026 VELKOR IMPORTACIONES S.A.C. Todos los derechos reservados.</p>
+            <p className="font-sans">Despacho seguro y eficiente para mayoristas</p>
+          </div>
+        </div>
       </footer>
 
       {/* 4. Bottom Tabbed Navigation (Crucial for Mobile Viewport) */}
