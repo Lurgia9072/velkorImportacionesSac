@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Product, CATEGORIES } from './types';
-import { getProducts } from './firebase';
+import { getProducts, getStoreConfig } from './firebase';
 import { ProductCard } from './components/ProductCard';
 import { ProductDetailsModal } from './components/ProductDetailsModal';
 import { OrderFormModal } from './components/OrderFormModal';
 import { AdminPanel } from './components/AdminPanel';
-const velkorBannerBg = '/assets/images/velkor_banner.png';
+const velkorBannerBgLocal = '/assets/images/velkor_banner.png';
 import { 
   Wrench, 
   Search, 
@@ -35,6 +35,63 @@ interface CartItem {
 export default function App() {
   // Navigation: 'catalog' | 'history' | 'admin'
   const [activeView, setActiveView] = useState<'catalog' | 'history' | 'admin'>('catalog');
+
+  // Dynamic asset URLs with fallback to local bundled assets
+  const [bannerUrl, setBannerUrl] = useState<string>(velkorBannerBgLocal);
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Load store configuration from Firestore first
+    getStoreConfig().then(config => {
+      if (config) {
+        if (config.bannerUrl) {
+          setBannerUrl(config.bannerUrl);
+        } else {
+          tryFallbackBanner();
+        }
+        if (config.logoUrl) {
+          setLogoUrl(config.logoUrl);
+        } else {
+          tryFallbackLogo();
+        }
+      } else {
+        tryFallbackBanner();
+        tryFallbackLogo();
+      }
+    }).catch(err => {
+      console.warn("Could not fetch store config from firestore, using fallbacks:", err);
+      tryFallbackBanner();
+      tryFallbackLogo();
+    });
+
+    function tryFallbackBanner() {
+      const fbBannerUrl1 = "https://firebasestorage.googleapis.com/v0/b/velkor-importaciones-sac.firebasestorage.app/o/velkor_banner_bg.jpg?alt=media";
+      const fbBannerUrl2 = "https://firebasestorage.googleapis.com/v0/b/velkor-importaciones-sac.appspot.com/o/velkor_banner_bg.jpg?alt=media";
+      
+      const bannerImg = new Image();
+      bannerImg.src = fbBannerUrl1;
+      bannerImg.onload = () => setBannerUrl(fbBannerUrl1);
+      bannerImg.onerror = () => {
+        const bannerImg2 = new Image();
+        bannerImg2.src = fbBannerUrl2;
+        bannerImg2.onload = () => setBannerUrl(fbBannerUrl2);
+      };
+    }
+
+    function tryFallbackLogo() {
+      const fbLogoUrl1 = "https://firebasestorage.googleapis.com/v0/b/velkor-importaciones-sac.firebasestorage.app/o/logo.png?alt=media";
+      const fbLogoUrl2 = "https://firebasestorage.googleapis.com/v0/b/velkor-importaciones-sac.appspot.com/o/logo.png?alt=media";
+
+      const logoImg = new Image();
+      logoImg.src = fbLogoUrl1;
+      logoImg.onload = () => setLogoUrl(fbLogoUrl1);
+      logoImg.onerror = () => {
+        const logoImg2 = new Image();
+        logoImg2.src = fbLogoUrl2;
+        logoImg2.onload = () => setLogoUrl(fbLogoUrl2);
+      };
+    }
+  }, []);
 
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -216,9 +273,12 @@ export default function App() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           {/* Logo & Corporate Title */}
           <div className="flex items-center gap-3 cursor-pointer" onClick={() => handleNavigate('catalog')}>
-            <div className="w-10 h-10 rounded-xl flex items-center justify-center text-slate-950 font-extrabold shadow-md shadow-emerald-500/20">
-              {/* <Wrench className="w-5 h-5 text-slate-950 animate-spin-slow" style={{ animationDuration: '6s' }} /> */}
-              <img src="/assets/images/logo.jpeg" alt="VELKOR IMPORTACIONES" />
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-extrabold shadow-md overflow-hidden ${logoUrl ? 'bg-white border border-slate-200' : 'bg-emerald-500 text-slate-950 shadow-emerald-500/20'}`}>
+              {logoUrl ? (
+                <img src={logoUrl} alt="Velkor Logo" className="w-full h-full object-contain p-0.5" />
+              ) : (
+                <Wrench className="w-5 h-5 text-slate-950 animate-spin-slow" style={{ animationDuration: '6s' }} />
+              )}
             </div>
             <div>
               <h1 className="text-lg font-display font-black tracking-tight leading-none flex items-center gap-1">
@@ -254,7 +314,7 @@ export default function App() {
             <button
               id="btn-cart-desktop"
               onClick={() => setIsCartOpen(true)}
-              className="relative bg-black hover:bg-slate-800 text-white font-mono font-bold text-xs px-4 py-2.5 rounded-xl border border-slate-800 flex items-center gap-2 transition-all cursor-pointer"
+              className="relative bg-slate-900 hover:bg-slate-800 text-white font-mono font-bold text-xs px-4 py-2.5 rounded-xl border border-slate-800 flex items-center gap-2 transition-all cursor-pointer"
             >
               <ShoppingCart className="w-4 h-4 text-emerald-400" />
               <span>Mi Carrito ({cart.reduce((sum, item) => sum + item.quantity, 0)})</span>
@@ -268,10 +328,10 @@ export default function App() {
         <div 
           id="hero-banner"
           className="relative w-full bg-cover bg-center overflow-hidden min-h-[380px] md:h-[450px] border-b border-neutral-900 flex items-center py-10"
-          style={{ backgroundImage: `url(${velkorBannerBg})` }}
+          style={{ backgroundImage: `url(${bannerUrl})` }}
         >
           {/* Overlay to darken background for high contrast text readability */}
-          <div className="absolute inset-0" />
+          <div className="absolute inset-0 bg-black/30" />
           
           <div className="relative z-10 max-w-7xl w-full mx-auto px-4 sm:px-6 flex flex-col justify-center text-left space-y-4 md:space-y-6">
             <div className="space-y-2 md:space-y-3">
@@ -583,8 +643,14 @@ export default function App() {
             
             {/* Column 1: Brand details */}
             <div className="space-y-3">
-              <div className="flex items-center justify-center md:justify-start gap-2">
-                <div className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse" />
+              <div className="flex items-center justify-center md:justify-start gap-2.5">
+                {logoUrl ? (
+                  <div className="w-7 h-7 bg-white rounded-lg flex items-center justify-center p-0.5 border border-neutral-800 shadow-inner overflow-hidden">
+                    <img src={logoUrl} alt="Logo" className="w-full h-full object-contain" />
+                  </div>
+                ) : (
+                  <div className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse" />
+                )}
                 <span className="text-white font-display font-black tracking-wider uppercase text-sm">VELKOR IMPORTACIONES</span>
               </div>
               <p className="text-neutral-500 text-xs font-sans max-w-sm mx-auto md:mx-0">

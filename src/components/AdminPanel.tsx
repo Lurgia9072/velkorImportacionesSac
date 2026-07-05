@@ -6,7 +6,9 @@ import {
   updateProduct, 
   deleteProduct, 
   getOrders, 
-  updateOrder 
+  updateOrder,
+  getStoreConfig,
+  updateStoreConfig
 } from '../firebase';
 import { 
   Shield, 
@@ -75,6 +77,11 @@ export const AdminPanel: React.FC = () => {
   // Image upload and processing states
   const [isDragging, setIsDragging] = useState(false);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
+
+  // Store Layout Settings States
+  const [storeLogo, setStoreLogo] = useState('');
+  const [storeBanner, setStoreBanner] = useState('');
+  const [isSavingSettings, setIsSavingSettings] = useState(false);
 
   const processImageFiles = async (files: FileList | File[]) => {
     if (!files || files.length === 0) return;
@@ -187,6 +194,12 @@ export const AdminPanel: React.FC = () => {
       const ords = await getOrders();
       setProducts(prods);
       setOrders(ords);
+
+      const config = await getStoreConfig();
+      if (config) {
+        setStoreLogo(config.logoUrl || '');
+        setStoreBanner(config.bannerUrl || '');
+      }
     } catch (err) {
       console.error('Error loading admin data:', err);
     } finally {
@@ -534,7 +547,7 @@ export const AdminPanel: React.FC = () => {
       <div id="admin-login-screen" className="max-w-md mx-auto my-12 bg-[#111111] rounded-2xl border border-neutral-800 shadow-xl overflow-hidden text-white animate-fadeIn">
         <div className="bg-black p-6 text-center text-white border-b border-neutral-850">
           <div className="mx-auto w-12 h-12 bg-emerald-500/10 text-emerald-500 rounded-full flex items-center justify-center mb-3">
-             <img src="/assets/images/logo.jpeg" alt="VELKOR IMPORTACIONES" />
+            <Shield className="w-6 h-6" />
           </div>
           <h2 className="text-xl font-display font-black tracking-tight">Acceso Administrativo</h2>
           <p className="text-neutral-400 text-xs mt-1">Velkor Importaciones S.A.C.</p>
@@ -591,7 +604,22 @@ export const AdminPanel: React.FC = () => {
             </button>
           </form>
 
-         
+          <div className="relative my-6 text-center">
+            <hr className="border-neutral-850" />
+            <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 bg-[#111111] px-2 text-[10px] text-neutral-500 uppercase font-mono">o</span>
+          </div>
+
+          <button
+            id="admin-bypass-btn"
+            onClick={handleDemoAccess}
+            className="w-full bg-neutral-800 hover:bg-neutral-700 border border-neutral-750 text-neutral-200 py-2.5 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 font-mono"
+          >
+            <Sparkles className="w-4 h-4" />
+            Autocompletar Datos (Demo)
+          </button>
+          <p className="text-[10px] text-center text-neutral-500 mt-2 font-mono">
+            * Carga las credenciales autorizadas del corporativo Velkor.
+          </p>
         </div>
       </div>
     );
@@ -605,8 +633,8 @@ export const AdminPanel: React.FC = () => {
         <div className="space-y-6">
           {/* Header & Corporate Title */}
           <div className="flex items-center gap-3 pb-5 border-b border-slate-800">
-            <div className="w-9 h-9 text-slate-950 rounded-xl flex items-center justify-center font-black shadow-md shadow-emerald-500/20">
-             <img src="/assets/images/logo.jpeg" alt="VELKOR IMPORTACIONES" />
+            <div className="w-9 h-9 bg-emerald-500 text-slate-950 rounded-xl flex items-center justify-center font-black shadow-md shadow-emerald-500/20">
+              <Shield className="w-5 h-5" />
             </div>
             <div>
               <h2 className="font-display font-black text-sm text-white tracking-tight leading-none">VELKOR ADMIN</h2>
@@ -621,7 +649,8 @@ export const AdminPanel: React.FC = () => {
               { id: 'inventory', label: 'Mis Productos (CRUD)', icon: Package, badge: products.length },
               { id: 'metrics', label: 'Métricas & Ventas', icon: BarChart3 },
               { id: 'loyal_clients', label: 'Clientes Fieles', icon: UserCheck },
-              { id: 'lost_clients', label: 'Clientes "No Compraron"', icon: UserX }
+              { id: 'lost_clients', label: 'Clientes "No Compraron"', icon: UserX },
+              { id: 'settings', label: 'Diseño Tienda (Logo/Banner)', icon: Sliders }
             ].map(item => {
               const Icon = item.icon;
               const isActive = activeTab === item.id;
@@ -660,7 +689,7 @@ export const AdminPanel: React.FC = () => {
               title="Sincronizar base de datos"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-              Sincronizar información
+              Sincronizar DB
             </button>
           </div>
           <div className="flex items-center gap-2">
@@ -668,7 +697,7 @@ export const AdminPanel: React.FC = () => {
               VK
             </div>
             <div className="truncate">
-              <p className="font-bold text-white leading-tight">Yauramiza Ivan</p>
+              <p className="font-bold text-white leading-tight">Yauramiza A.</p>
               <p className="text-slate-500 text-[8px] truncate">velkoryauramiza@gmail.com</p>
             </div>
           </div>
@@ -712,7 +741,8 @@ export const AdminPanel: React.FC = () => {
             { id: 'inventory', label: 'Productos', count: products.length },
             { id: 'metrics', label: 'Métricas' },
             { id: 'loyal_clients', label: 'Fieles' },
-            { id: 'lost_clients', label: 'No Compraron' }
+            { id: 'lost_clients', label: 'No Compraron' },
+            { id: 'settings', label: 'Diseño' }
           ].map(item => (
             <button
               key={item.id}
@@ -1989,6 +2019,258 @@ export const AdminPanel: React.FC = () => {
                   </table>
                 </div>
               )}
+            </div>
+          )}
+
+          {/* ==================== 6. TAB: SETTINGS ==================== */}
+          {activeTab === 'settings' && (
+            <div id="admin-settings-tab" className="bg-white border border-slate-200 rounded-2xl shadow-xs overflow-hidden animate-slideDown p-6 space-y-6">
+              <div className="border-b border-slate-100 pb-4">
+                <h2 className="font-display font-black text-xl text-slate-900 flex items-center gap-2">
+                  <Sliders className="w-5 h-5 text-emerald-500" />
+                  Configuración de Página y Tienda Virtual
+                </h2>
+                <p className="text-slate-500 text-xs mt-1 font-mono">
+                  Personaliza el aspecto visual de Velkor Importaciones cargando tu logo oficial y tu banner publicitario principal.
+                </p>
+              </div>
+
+              <form onSubmit={async (e) => {
+                e.preventDefault();
+                setIsSavingSettings(true);
+                try {
+                  await updateStoreConfig({ logoUrl: storeLogo, bannerUrl: storeBanner });
+                  alert('¡Configuración guardada con éxito! El logo y el banner se actualizarán instantáneamente para todos los clientes en la tienda virtual.');
+                } catch (err) {
+                  console.error('Error saving store config:', err);
+                  alert('Ocurrió un error al guardar la configuración en la base de datos.');
+                } finally {
+                  setIsSavingSettings(false);
+                }
+              }} className="space-y-8">
+                
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                  {/* Logo Config Section */}
+                  <div className="space-y-4 border border-slate-100 rounded-xl p-5 bg-slate-50/50">
+                    <div>
+                      <h3 className="font-display font-extrabold text-sm text-slate-800 flex items-center gap-2">
+                        <Image className="w-4 h-4 text-emerald-500" />
+                        Logo Oficial de la Tienda
+                      </h3>
+                      <p className="text-[11px] text-slate-400 mt-0.5 leading-normal">
+                        Se muestra en la esquina superior izquierda del encabezado y en el pie de página de la web de los clientes.
+                      </p>
+                    </div>
+
+                    {/* Logo Preview */}
+                    <div className="flex items-center gap-4">
+                      <div className="w-24 h-24 bg-white border border-slate-200 rounded-2xl flex items-center justify-center p-2 shadow-inner shrink-0 overflow-hidden">
+                        {storeLogo ? (
+                          <img src={storeLogo} alt="Logo Preview" className="w-full h-full object-contain" />
+                        ) : (
+                          <span className="text-[10px] text-slate-400 text-center font-mono font-bold">Sin Logo</span>
+                        )}
+                      </div>
+                      <div className="space-y-2 flex-1">
+                        <label className="block text-xs font-mono font-bold text-slate-700">Subir Logo desde tu computadora:</label>
+                        <input
+                          id="logo-file-input"
+                          type="file"
+                          accept="image/*"
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              try {
+                                const compressed = await new Promise<string>((resolve, reject) => {
+                                  const reader = new FileReader();
+                                  reader.onload = (event) => {
+                                    const img = new window.Image();
+                                    img.onload = () => {
+                                      const canvas = document.createElement('canvas');
+                                      const ctx = canvas.getContext('2d');
+                                      canvas.width = 200;
+                                      canvas.height = 200;
+                                      if (ctx) {
+                                        ctx.drawImage(img, 0, 0, 200, 200);
+                                        resolve(canvas.toDataURL('image/jpeg', 0.85));
+                                      } else {
+                                        reject(new Error('Canvas context error'));
+                                      }
+                                    };
+                                    img.onerror = () => reject(new Error('Error al cargar la imagen'));
+                                    img.src = event.target?.result as string;
+                                  };
+                                  reader.onerror = () => reject(new Error('Error de FileReader'));
+                                  reader.readAsDataURL(file);
+                                });
+                                setStoreLogo(compressed);
+                              } catch (err) {
+                                console.error('Error al procesar logo:', err);
+                                alert('Error al procesar e integrar el archivo de logo');
+                              }
+                            }
+                          }}
+                          className="block w-full text-xs text-slate-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100 cursor-pointer"
+                        />
+                        <div className="text-[10px] text-slate-400">Formatos recomendados: PNG o JPG con fondo blanco o transparente.</div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-1 pt-2 border-t border-slate-100">
+                      <label className="block text-[10px] font-mono uppercase text-slate-500">O ingresa un enlace (URL) alternativo para tu logo:</label>
+                      <input
+                        id="logo-url-input"
+                        type="url"
+                        placeholder="https://ejemplo.com/logo.png"
+                        value={storeLogo}
+                        onChange={(e) => setStoreLogo(e.target.value)}
+                        className="w-full bg-white border border-slate-200 focus:border-emerald-500 rounded-lg px-3 py-1.5 text-xs font-mono"
+                      />
+                    </div>
+
+                    {storeLogo && (
+                      <button
+                        type="button"
+                        onClick={() => setStoreLogo('')}
+                        className="text-[10px] font-mono text-rose-500 hover:text-rose-700 font-bold border border-transparent hover:border-rose-100 bg-rose-50 px-2 py-1 rounded"
+                      >
+                        Quitar Logo / Restaurar Predeterminado
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Banner Config Section */}
+                  <div className="space-y-4 border border-slate-100 rounded-xl p-5 bg-slate-50/50">
+                    <div>
+                      <h3 className="font-display font-extrabold text-sm text-slate-800 flex items-center gap-2">
+                        <Image className="w-4 h-4 text-emerald-500" />
+                        Banner Publicitario Principal (Cabecera)
+                      </h3>
+                      <p className="text-[11px] text-slate-400 mt-0.5 leading-normal">
+                        Fondo de la sección principal en el catálogo. Se recomienda una imagen panorámica de alta calidad de repuestos o motocicletas.
+                      </p>
+                    </div>
+
+                    {/* Banner Preview */}
+                    <div className="space-y-3">
+                      <div className="relative w-full h-28 bg-neutral-900 border border-slate-200 rounded-xl overflow-hidden flex items-center justify-center p-2 shadow-inner">
+                        {storeBanner ? (
+                          <>
+                            <div className="absolute inset-0 bg-cover bg-center opacity-40" style={{ backgroundImage: `url(${storeBanner})` }} />
+                            <div className="relative z-10 text-center space-y-1">
+                              <p className="text-white text-xs font-bold font-display uppercase tracking-wider">VELKOR IMPORTACIONES</p>
+                              <p className="text-[9px] text-emerald-400 font-mono">Vista Previa Interactiva del Banner</p>
+                            </div>
+                          </>
+                        ) : (
+                          <span className="text-[10px] text-slate-400 font-mono font-bold">Sin Banner / Fondo Predeterminado Activo</span>
+                        )}
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="block text-xs font-mono font-bold text-slate-700">Subir Banner desde tu computadora:</label>
+                        <input
+                          id="banner-file-input"
+                          type="file"
+                          accept="image/*"
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              try {
+                                const compressed = await new Promise<string>((resolve, reject) => {
+                                  const reader = new FileReader();
+                                  reader.onload = (event) => {
+                                    const img = new window.Image();
+                                    img.onload = () => {
+                                      const canvas = document.createElement('canvas');
+                                      const ctx = canvas.getContext('2d');
+                                      const MAX_W = 800;
+                                      const MAX_H = 400;
+                                      let w = img.width;
+                                      let h = img.height;
+                                      if (w > MAX_W) {
+                                        h = (h * MAX_W) / w;
+                                        w = MAX_W;
+                                      }
+                                      if (h > MAX_H) {
+                                        w = (w * MAX_H) / h;
+                                        h = MAX_H;
+                                      }
+                                      canvas.width = w;
+                                      canvas.height = h;
+                                      if (ctx) {
+                                        ctx.drawImage(img, 0, 0, w, h);
+                                        resolve(canvas.toDataURL('image/jpeg', 0.8));
+                                      } else {
+                                        reject(new Error('Canvas context error'));
+                                      }
+                                    };
+                                    img.onerror = () => reject(new Error('Error al cargar la imagen'));
+                                    img.src = event.target?.result as string;
+                                  };
+                                  reader.onerror = () => reject(new Error('FileReader error'));
+                                  reader.readAsDataURL(file);
+                                });
+                                setStoreBanner(compressed);
+                              } catch (err) {
+                                console.error('Error al procesar banner:', err);
+                                alert('Error al comprimir y procesar la imagen de banner.');
+                              }
+                            }
+                          }}
+                          className="block w-full text-xs text-slate-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100 cursor-pointer"
+                        />
+                        <div className="text-[10px] text-slate-400">Recomendado: Imágenes horizontales de repuestos de motos. El sistema las comprimirá automáticamente.</div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-1 pt-2 border-t border-slate-100">
+                      <label className="block text-[10px] font-mono uppercase text-slate-500">O ingresa un enlace (URL) alternativo para tu banner:</label>
+                      <input
+                        id="banner-url-input"
+                        type="url"
+                        placeholder="https://ejemplo.com/banner.jpg"
+                        value={storeBanner}
+                        onChange={(e) => setStoreBanner(e.target.value)}
+                        className="w-full bg-white border border-slate-200 focus:border-emerald-500 rounded-lg px-3 py-1.5 text-xs font-mono"
+                      />
+                    </div>
+
+                    {storeBanner && (
+                      <button
+                        type="button"
+                        onClick={() => setStoreBanner('')}
+                        className="text-[10px] font-mono text-rose-500 hover:text-rose-700 font-bold border border-transparent hover:border-rose-100 bg-rose-50 px-2 py-1 rounded"
+                      >
+                        Quitar Banner / Restaurar Predeterminado
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Submit button */}
+                <div className="border-t border-slate-100 pt-6 flex justify-end">
+                  <button
+                    id="save-store-settings-btn"
+                    type="submit"
+                    disabled={isSavingSettings}
+                    className="bg-emerald-500 hover:bg-emerald-450 active:scale-[0.98] disabled:opacity-50 text-slate-950 font-display font-black px-6 py-3.5 rounded-xl shadow-lg shadow-emerald-500/20 transition-all font-mono uppercase tracking-wider text-sm flex items-center gap-2"
+                  >
+                    {isSavingSettings ? (
+                      <>
+                        <RefreshCw className="w-4 h-4 animate-spin" />
+                        Guardando...
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle className="w-4 h-4" />
+                        Guardar Configuración de Tienda
+                      </>
+                    )}
+                  </button>
+                </div>
+
+              </form>
             </div>
           )}
             </>

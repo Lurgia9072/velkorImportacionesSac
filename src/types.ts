@@ -49,3 +49,9 @@ export const CATEGORIES = [
   'Suspensiones',
   'Accesorios'
 ] as const;
+
+export interface StoreConfig {
+  logoUrl?: string;
+  bannerUrl?: string;
+}
+

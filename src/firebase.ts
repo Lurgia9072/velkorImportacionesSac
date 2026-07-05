@@ -7,10 +7,12 @@ import {
   updateDoc, 
   deleteDoc, 
   doc, 
+  getDoc,
+  setDoc,
   increment,
   writeBatch
 } from 'firebase/firestore';
-import { Product, Order } from './types';
+import { Product, Order, StoreConfig } from './types';
 
 // Configuration loaded from firebase-applet-config.json
 const firebaseConfig = {
@@ -109,3 +111,23 @@ export async function updateOrder(id: string, updatedFields: Partial<Order>): Pr
   // If order is updated to 'Venta cerrada', or if quantity changes, we could manage sales,
   // but keeping it simple: when created, we count it, and we can also update based on close status if needed.
 }
+
+export async function getStoreConfig(): Promise<StoreConfig | null> {
+  try {
+    const configDocRef = doc(db, 'settings', 'store_config');
+    const docSnap = await getDoc(configDocRef);
+    if (docSnap.exists()) {
+      return docSnap.data() as StoreConfig;
+    }
+    return null;
+  } catch (error) {
+    console.error("Error getting store config from Firestore:", error);
+    return null;
+  }
+}
+
+export async function updateStoreConfig(config: StoreConfig): Promise<void> {
+  const configDocRef = doc(db, 'settings', 'store_config');
+  await setDoc(configDocRef, config, { merge: true });
+}
+
