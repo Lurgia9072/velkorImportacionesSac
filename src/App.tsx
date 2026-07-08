@@ -93,6 +93,56 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('Todos');
   const [selectedStatus, setSelectedStatus] = useState<string>('Todos');
+  const [desktopCols, setDesktopCols] = useState<4 | 5 | 6>(5);
+  const [activeBannerIdx, setActiveBannerIdx] = useState(0);
+
+  const getGridColsClass = () => {
+    switch (desktopCols) {
+      case 4:
+        return 'grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 md:gap-3';
+      case 6:
+        return 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2 md:gap-3';
+      case 5:
+      default:
+        return 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 md:gap-3';
+    }
+  };
+
+  const banners = [
+    {
+      badge: "🇨🇳 IMPORTACIÓN CHINA DIRECTA",
+      title: "VELKOR IMPORTACIONES",
+      desc: "Repuestos y accesorios premium de alta calidad al por mayor y menor.",
+      image: bannerUrl,
+      actionText: "Explorar Repuestos",
+      statusFilter: "Todos"
+    },
+    {
+      badge: "🔥 OFERTAS ESPECIALES",
+      title: "LIQUIDACIÓN Y DESCUENTOS",
+      desc: "Hasta un 30% de descuento directo en piezas seleccionadas.",
+      image: "https://images.unsplash.com/photo-1558981806-ec527fa84c39?auto=format&fit=crop&w=1200&q=80",
+      actionText: "Ver Promociones",
+      statusFilter: "Promoción"
+    },
+    {
+      badge: "⚡ NOVEDADES E INGRESOS",
+      title: "NUEVAS PIEZAS ADQUIRIDAS",
+      desc: "Componentes recién llegados con tecnología y durabilidad superior.",
+      image: "https://images.unsplash.com/photo-1568772585407-9361f9bf3a87?auto=format&fit=crop&w=1200&q=80",
+      actionText: "Ver Novedades",
+      statusFilter: "Nuevo"
+    }
+  ];
+
+  useEffect(() => {
+    if (activeView !== 'catalog') return;
+    const interval = setInterval(() => {
+      setActiveBannerIdx(prev => (prev + 1) % banners.length);
+    }, 4500);
+    return () => clearInterval(interval);
+  }, [activeView, banners.length]);
+
 
   // Modals state
   const [selectedProductDetails, setSelectedProductDetails] = useState<Product | null>(null);
@@ -280,7 +330,7 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col">
+    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col pb-16 md:pb-0">
       {/* 1. Header (Dynamic Navigation Branding) */}
       <header className="bg-white/95 text-slate-900 border-b border-slate-200 sticky top-0 z-40 backdrop-blur-md">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -336,54 +386,66 @@ export default function App() {
         </div>
       </header>
 
-      {/* 2. Full-width Hero Banner (Active only on Catalog view) */}
+      {/* 2. Compact Rotative Banner Hero (Active only on Catalog view) */}
       {activeView === 'catalog' && (
         <div 
           id="hero-banner"
-          className="relative w-full bg-cover bg-center overflow-hidden min-h-[380px] md:h-[450px] border-b border-neutral-900 flex items-center py-10"
-          style={{ backgroundImage: `url(${bannerUrl})` }}
+          className="relative w-full overflow-hidden h-[180px] md:h-[220px] border-b border-slate-200 bg-slate-900 text-white select-none transition-all duration-700 ease-in-out"
+          style={{ backgroundImage: `url(${banners[activeBannerIdx].image})`, backgroundSize: 'cover', backgroundPosition: 'center' }}
         >
           {/* Overlay to darken background for high contrast text readability */}
-          <div className="absolute inset-0 bg-black/30" />
+          <div className="absolute inset-0 bg-black/50" />
           
-          <div className="relative z-10 max-w-7xl w-full mx-auto px-4 sm:px-6 flex flex-col justify-center text-left space-y-4 md:space-y-6">
-            <div className="space-y-2 md:space-y-3">
-              <span className="inline-block bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 text-[10px] md:text-xs font-mono font-black px-3 py-1 rounded-full uppercase tracking-widest">
-                 IMPORTACIÓN CHINA EN CAMINO
+          <div className="relative z-10 max-w-7xl w-full h-full mx-auto px-4 sm:px-6 flex flex-col justify-center space-y-1.5 md:space-y-2">
+            <div>
+              <span className="inline-block bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 text-[9px] md:text-[10px] font-mono font-black px-2 py-0.5 rounded uppercase tracking-wider">
+                {banners[activeBannerIdx].badge}
               </span>
-              <h1 className="text-4xl sm:text-5xl md:text-6xl font-display text-slate-100 font-black tracking-tight uppercase leading-none">
-                VELKOR <span className="text-emerald-500">IMPORTACIONES</span>
-              </h1>
-              <p className="text-lg sm:text-xl md:text-2xl font-semibold text-neutral-100 tracking-wide font-sans capitalize">
-                repuestos y accesorios para todo tipo de motos
-              </p>
             </div>
             
-            <p className="text-sm md:text-base text-neutral-100 max-w-2xl leading-relaxed font-sans first-letter:uppercase">
-              productos de alta calidad, al mejor precio y con la confianza que tu negocio necesita
+            <h1 className="text-xl sm:text-2xl md:text-3xl font-display font-black tracking-tight uppercase leading-none transition-all duration-500">
+              {banners[activeBannerIdx].title}
+            </h1>
+            
+            <p className="text-xs sm:text-sm text-slate-300 max-w-xl line-clamp-1 font-sans font-medium">
+              {banners[activeBannerIdx].desc}
             </p>
 
-            <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-neutral-900/90 border border-neutral-800 text-neutral-200 text-xs rounded-lg font-bold font-mono w-fit uppercase">
-                ⭐ venta por mayor y menor
-              </span>
-            </div>
-
-            <div className="pt-2">
+            <div className="pt-1 flex items-center gap-3">
               <button 
                 id="hero-scroll-to-products"
                 onClick={() => {
+                  const filterVal = banners[activeBannerIdx].statusFilter;
+                  if (filterVal) {
+                    if (filterVal === 'Todos') {
+                      setSelectedStatus('Todos');
+                    } else {
+                      setSelectedStatus(filterVal);
+                    }
+                  }
                   const element = document.getElementById('catalog-filters-section');
                   if (element) {
                     element.scrollIntoView({ behavior: 'smooth', block: 'start' });
                   }
                 }}
-                className="inline-flex items-center gap-2 bg-emerald-500 hover:bg-emerald-400 text-black font-display font-black text-xs md:text-sm px-6 py-3.5 rounded-xl shadow-lg shadow-emerald-500/20 hover:shadow-emerald-500/40 transition-all font-mono uppercase tracking-wider group"
+                className="inline-flex items-center gap-1.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-display font-black text-[10px] md:text-xs px-4 py-2 rounded-lg shadow-md shadow-emerald-500/10 transition-all font-mono uppercase tracking-wider group"
               >
-                Ver Catálogo de Repuestos
-                <ChevronRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+                <span>{banners[activeBannerIdx].actionText}</span>
+                <ChevronRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />
               </button>
             </div>
+          </div>
+
+          {/* Dots Indicator for Banners */}
+          <div className="absolute bottom-2.5 left-1/2 -translate-x-1/2 flex items-center gap-1.5 z-20">
+            {banners.map((_, idx) => (
+              <button
+                key={idx}
+                onClick={() => setActiveBannerIdx(idx)}
+                className={`w-1.5 h-1.5 rounded-full transition-all duration-300 ${idx === activeBannerIdx ? 'bg-emerald-500 w-3' : 'bg-white/40 hover:bg-white/75'}`}
+                aria-label={`Ir al banner ${idx + 1}`}
+              />
+            ))}
           </div>
         </div>
       )}
@@ -396,36 +458,36 @@ export default function App() {
           <div id="catalog-view" className="space-y-6 animate-fadeIn">
             
             {/* Catalog Filter controls (Search & Filters Row) */}
-            <div id="catalog-filters-section" className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs space-y-4 scroll-mt-24">
-              <div className="flex flex-col md:flex-row gap-3">
-                {/* Search Bar Input */}
+            <div id="catalog-filters-section" className="bg-white border border-slate-200 rounded-xl p-3 shadow-[0_1px_3px_rgba(0,0,0,0.06)] space-y-3 scroll-mt-24">
+              <div className="flex flex-col md:flex-row gap-2.5 items-stretch md:items-center">
+                {/* Search Bar Input (Reduced vertical footprint) */}
                 <div className="flex-1 relative">
-                  <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
                   <input 
                     id="catalog-search-input"
                     type="text"
-                    placeholder="Buscar repuesto (ej: filtro, Honda, pastillas, kit de arrastre...)"
+                    placeholder="Buscar repuesto..."
                     value={searchQuery}
                     onChange={e => setSearchQuery(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 rounded-xl pl-10 pr-4 py-2.5 text-sm focus:outline-hidden transition-colors text-slate-900 placeholder:text-slate-400"
+                    className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 rounded-lg pl-8.5 pr-14 py-1.5 text-xs h-8.5 focus:outline-hidden transition-colors text-slate-900 placeholder:text-slate-400 font-medium"
                   />
                   {searchQuery && (
                     <button 
                       id="catalog-clear-search"
                       onClick={() => setSearchQuery('')}
-                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-mono text-slate-400 hover:text-slate-600 font-bold"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-mono text-slate-400 hover:text-slate-600 font-bold"
                     >
                       Limpiar
                     </button>
                   )}
                 </div>
  
-                {/* Status Filter Tab Buttons */}
-                <div className="flex overflow-x-auto gap-1.5 pb-1 md:pb-0 scrollbar-none font-mono text-xs">
+                {/* Status Filter Tab Buttons (Reduced sizes) */}
+                <div className="flex overflow-x-auto gap-1 pb-0.5 md:pb-0 scrollbar-none font-mono text-[10px] shrink-0">
                   {[
                     { id: 'Todos', label: 'Todos', icon: Grid },
-                    { id: 'Nuevo', label: 'Nuevos', icon: Sparkles, color: 'text-emerald-600' },
-                    { id: 'Promoción', label: 'Promociones', icon: Flame, color: 'text-amber-500' },
+                    { id: 'Nuevo', label: 'Nuevos', icon: Sparkles, color: 'text-emerald-500' },
+                    { id: 'Promoción', label: 'Promos', icon: Flame, color: 'text-orange-500' },
                     { id: 'Importación próxima', label: 'Por Llegar', icon: Calendar, color: 'text-blue-500' },
                   ].map(tab => {
                     const TabIcon = tab.icon;
@@ -435,13 +497,13 @@ export default function App() {
                         id={`filter-status-${tab.id}`}
                         key={tab.id}
                         onClick={() => setSelectedStatus(tab.id)}
-                        className={`px-3 py-2 rounded-xl border font-bold flex items-center gap-1.5 whitespace-nowrap transition-all ${
+                        className={`px-2.5 py-1.5 rounded-lg border font-bold flex items-center gap-1 whitespace-nowrap transition-all h-8.5 ${
                           isActive 
-                            ? 'bg-emerald-500 text-slate-950 border-emerald-500' 
-                            : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200'
+                            ? 'bg-emerald-600 text-white border-emerald-600' 
+                            : 'bg-slate-50 hover:bg-slate-100 text-slate-600 border-slate-200'
                         }`}
                       >
-                        <TabIcon className={`w-3.5 h-3.5 ${tab.color || ''}`} />
+                        <TabIcon className={`w-3 h-3 ${tab.color || ''}`} />
                         {tab.label}
                       </button>
                     );
@@ -449,32 +511,60 @@ export default function App() {
                 </div>
               </div>
  
-              {/* Categories Navigation Badges */}
-              <div className="border-t border-slate-100 pt-3 flex flex-wrap gap-1.5 items-center">
-                <span className="text-[10px] font-mono uppercase tracking-wider text-slate-400 mr-2">Categoría:</span>
-                <button
-                  id="category-all-btn"
-                  onClick={() => setSelectedCategory('Todos')}
-                  className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all ${
-                    selectedCategory === 'Todos'
-                      ? 'bg-emerald-500 text-slate-950'
-                      : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200/60'
-                  }`}
-                >
-                  Ver Todo
-                </button>
-                {CATEGORIES.map(cat => (
+              {/* Categories Navigation Badges - Scroll horizontal in mobile without wrap */}
+              <div className="border-t border-slate-100 pt-2 flex items-center w-full overflow-hidden">
+                <span className="text-[10px] font-mono uppercase tracking-wider text-slate-400 mr-2 shrink-0 hidden sm:inline-block">Categorías:</span>
+                
+                <div className="flex overflow-x-auto whitespace-nowrap scrollbar-none pb-0.5 gap-1.5 w-full md:flex-wrap items-center">
                   <button
-                    id={`category-btn-${cat}`}
-                    key={cat}
-                    onClick={() => setSelectedCategory(cat)}
-                    className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all ${
-                      selectedCategory === cat
-                        ? 'bg-emerald-500 text-slate-950'
-                        : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200/60'
+                    id="category-all-btn"
+                    onClick={() => setSelectedCategory('Todos')}
+                    className={`px-2.5 py-1 rounded-full text-[11px] font-bold transition-all whitespace-nowrap ${
+                      selectedCategory === 'Todos'
+                        ? 'bg-emerald-600 text-white shadow-xs'
+                        : 'bg-slate-100 hover:bg-slate-200 text-slate-600'
                     }`}
                   >
-                    {cat}
+                    Ver Todo
+                  </button>
+                  {CATEGORIES.map(cat => (
+                    <button
+                      id={`category-btn-${cat}`}
+                      key={cat}
+                      onClick={() => setSelectedCategory(cat)}
+                      className={`px-2.5 py-1 rounded-full text-[11px] font-bold transition-all whitespace-nowrap ${
+                        selectedCategory === cat
+                          ? 'bg-emerald-600 text-white shadow-xs'
+                          : 'bg-slate-100 hover:bg-slate-200 text-slate-600'
+                      }`}
+                    >
+                      {cat}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Products grid density bar & summary */}
+            <div className="flex justify-between items-center text-xs text-slate-500 font-mono pt-1">
+              <div>
+                Encontrados: <strong className="text-slate-800 font-bold">{filteredProducts.length}</strong> repuestos
+              </div>
+              
+              {/* Columns switcher (visible only on desktop >= 1024px) */}
+              <div className="hidden lg:flex items-center gap-2 bg-slate-100 p-0.5 rounded-lg border border-slate-200/50">
+                <span className="text-[9px] text-slate-400 font-bold uppercase px-1">Columnas:</span>
+                {[4, 5, 6].map(cols => (
+                  <button
+                    key={cols}
+                    onClick={() => setDesktopCols(cols as 4 | 5 | 6)}
+                    className={`w-6 h-6 rounded flex items-center justify-center font-bold text-[11px] transition-all ${
+                      desktopCols === cols 
+                        ? 'bg-white text-emerald-600 shadow-xs border border-slate-200/60' 
+                        : 'text-slate-500 hover:text-slate-800'
+                    }`}
+                  >
+                    {cols}
                   </button>
                 ))}
               </div>
@@ -502,7 +592,7 @@ export default function App() {
                 </button>
               </div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className={getGridColsClass()}>
                 {filteredProducts.map(p => (
                   <ProductCard 
                     key={p.id} 
@@ -993,6 +1083,42 @@ export default function App() {
           </div>
         </div>
       )}
+
+      {/* Sticky Bottom Navigation Bar for Mobile (Only visible on screens < md) */}
+      <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200 px-4 py-2.5 flex items-center justify-around shadow-[0_-4px_12px_rgba(0,0,0,0.05)]">
+        <button
+          onClick={() => handleNavigate('catalog')}
+          className={`flex flex-col items-center gap-1 text-[10px] font-mono font-black transition-all ${
+            activeView === 'catalog' ? 'text-emerald-600' : 'text-slate-400'
+          }`}
+        >
+          <BookOpen className="w-5 h-5" />
+          <span>Catálogo</span>
+        </button>
+
+        {/* Floating Elevated Cart Trigger with real-time indicator badge */}
+        <button
+          onClick={() => setIsCartOpen(true)}
+          className="relative -top-5 w-12 h-12 rounded-full bg-emerald-500 text-slate-950 shadow-md shadow-emerald-500/40 border-4 border-white flex items-center justify-center active:scale-95 transition-all cursor-pointer"
+        >
+          <ShoppingCart className="w-5 h-5 text-slate-950" />
+          {cart.length > 0 && (
+            <span className="absolute -top-1 -right-1 bg-rose-500 text-white font-mono text-[9px] font-black min-w-4.5 h-4.5 px-1 rounded-full flex items-center justify-center border border-white">
+              {cart.reduce((sum, item) => sum + item.quantity, 0)}
+            </span>
+          )}
+        </button>
+
+        <button
+          onClick={() => { handleNavigate('history'); refreshLocalHistory(); }}
+          className={`flex flex-col items-center gap-1 text-[10px] font-mono font-black transition-all ${
+            activeView === 'history' ? 'text-emerald-600' : 'text-slate-400'
+          }`}
+        >
+          <ClipboardList className="w-5 h-5" />
+          <span>Mis Pedidos</span>
+        </button>
+      </div>
 
     </div>
   );
