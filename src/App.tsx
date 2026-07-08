@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Product, CATEGORIES } from './types';
+import { Product, CATEGORIES, CartItem } from './types';
 import { getProducts, getStoreConfig } from './firebase';
 import { ProductCard } from './components/ProductCard';
 import { ProductDetailsModal } from './components/ProductDetailsModal';
@@ -26,11 +26,6 @@ import {
   Trash,
   X
 } from 'lucide-react';
-
-interface CartItem {
-  product: Product;
-  quantity: number;
-}
 
 export default function App() {
   // Navigation: 'catalog' | 'history' | 'admin'
@@ -123,18 +118,36 @@ export default function App() {
     localStorage.setItem('velkor_shopping_cart', JSON.stringify(cart));
   }, [cart]);
 
-  const handleAddToCart = (product: Product, quantity: number) => {
+  const handleAddToCart = (product: Product, quantity: number, unitType?: 'unidades' | 'cajas', unitQuantity?: number) => {
+    const finalUnitType = unitType || 'unidades';
+    const finalUnitQuantity = unitQuantity ?? quantity;
+
     setCart(prev => {
-      const existingIdx = prev.findIndex(item => item.product.id === product.id);
+      const existingIdx = prev.findIndex(item => 
+        item.product.id === product.id && 
+        (item.unitType || 'unidades') === finalUnitType
+      );
       if (existingIdx !== -1) {
         const updated = [...prev];
+        const prevUnitQty = updated[existingIdx].unitQuantity ?? updated[existingIdx].quantity;
+        const newUnitQuantity = prevUnitQty + finalUnitQuantity;
+        const newTotalQuantity = finalUnitType === 'cajas' && product.unitsPerBox 
+          ? newUnitQuantity * product.unitsPerBox 
+          : newUnitQuantity;
+
         updated[existingIdx] = {
           ...updated[existingIdx],
-          quantity: updated[existingIdx].quantity + quantity
+          unitQuantity: newUnitQuantity,
+          quantity: newTotalQuantity
         };
         return updated;
       } else {
-        return [...prev, { product, quantity }];
+        return [...prev, { 
+          product, 
+          quantity, 
+          unitType: finalUnitType, 
+          unitQuantity: finalUnitQuantity 
+        }];
       }
     });
     setIsCartOpen(true);
@@ -582,7 +595,12 @@ export default function App() {
                             </h4>
                             
                             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-mono text-slate-500">
-                              <span>Cantidad: <strong className="text-slate-950 font-bold">{h.quantity} und.</strong></span>
+                              <span>
+                                Cantidad:{' '}
+                                <strong className="text-slate-950 font-black">
+                                  {h.unitType === 'cajas' ? `${h.selectedQuantity ?? Math.ceil(h.quantity / (matchedProduct?.unitsPerBox || 1))} caja(s) (${h.quantity} u.)` : `${h.quantity} und.`}
+                                </strong>
+                              </span>
                             </div>
                             
                             {(h.requestType || h.paymentMethod) && (
@@ -869,44 +887,74 @@ export default function App() {
                           </div>
 
                           {/* Quantity Selector inside cart */}
-                          <div className="flex items-center gap-1.5 mt-2">
-                            <div className="flex items-center border border-slate-250 rounded bg-white overflow-hidden h-7">
-                              <button
-                                type="button"
-                                id={`btn-cart-decrement-item-${item.product.id}`}
-                                onClick={() => {
-                                  setCart(prev => prev.map((c, i) => i === idx ? { ...c, quantity: Math.max(1, c.quantity - 1) } : c));
-                                }}
-                                className="px-2 h-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-extrabold text-xs"
-                              >
-                                -
-                              </button>
-                              <span className="font-mono text-xs font-bold text-slate-880 w-6 text-center">
-                                {item.quantity}
+                          <div className="flex flex-col gap-1 mt-2">
+                            <div className="flex items-center gap-1.5">
+                              <div className="flex items-center border border-slate-250 rounded bg-white overflow-hidden h-7">
+                                <button
+                                  type="button"
+                                  id={`btn-cart-decrement-item-${item.product.id}`}
+                                  onClick={() => {
+                                    setCart(prev => prev.map((c, i) => {
+                                      if (i === idx) {
+                                        const currentUnitQty = c.unitQuantity ?? c.quantity;
+                                        const nextUnitQty = Math.max(1, currentUnitQty - 1);
+                                        const nextQuantity = c.unitType === 'cajas' && c.product.unitsPerBox ? nextUnitQty * c.product.unitsPerBox : nextUnitQty;
+                                        return {
+                                          ...c,
+                                          unitQuantity: nextUnitQty,
+                                          quantity: nextQuantity
+                                        };
+                                      }
+                                      return c;
+                                    }));
+                                  }}
+                                  className="px-2 h-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-extrabold text-xs"
+                                >
+                                  -
+                                </button>
+                                <span className="font-mono text-xs font-bold text-slate-800 w-6 text-center">
+                                  {item.unitQuantity ?? item.quantity}
+                                </span>
+                                <button
+                                  type="button"
+                                  id={`btn-cart-increment-item-${item.product.id}`}
+                                  onClick={() => {
+                                    setCart(prev => prev.map((c, i) => {
+                                      if (i === idx) {
+                                        const currentUnitQty = c.unitQuantity ?? c.quantity;
+                                        const nextUnitQty = currentUnitQty + 1;
+                                        const nextQuantity = c.unitType === 'cajas' && c.product.unitsPerBox ? nextUnitQty * c.product.unitsPerBox : nextUnitQty;
+                                        return {
+                                          ...c,
+                                          unitQuantity: nextUnitQty,
+                                          quantity: nextQuantity
+                                        };
+                                      }
+                                      return c;
+                                    }));
+                                  }}
+                                  className="px-2 h-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-extrabold text-xs"
+                                >
+                                  +
+                                </button>
+                              </div>
+
+                              <span className="text-[11px] font-mono font-extrabold text-indigo-700 bg-indigo-50 px-1.5 py-0.5 rounded">
+                                {item.unitType === 'cajas' ? `caja(s) (${item.quantity} u.)` : 'unid.'}
                               </span>
+
+                              {/* Remove item button */}
                               <button
-                                type="button"
-                                id={`btn-cart-increment-item-${item.product.id}`}
+                                id={`btn-cart-remove-item-${item.product.id}`}
                                 onClick={() => {
-                                  setCart(prev => prev.map((c, i) => i === idx ? { ...c, quantity: c.quantity + 1 } : c));
+                                  setCart(prev => prev.filter((_, i) => i !== idx));
                                 }}
-                                className="px-2 h-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-extrabold text-xs"
+                                className="p-1 hover:bg-rose-50 text-rose-500 hover:text-rose-700 rounded border border-transparent hover:border-rose-200 transition-colors ml-auto"
+                                title="Eliminar repuesto"
                               >
-                                +
+                                <Trash className="w-3.5 h-3.5" />
                               </button>
                             </div>
-
-                            {/* Remove item button */}
-                            <button
-                              id={`btn-cart-remove-item-${item.product.id}`}
-                              onClick={() => {
-                                setCart(prev => prev.filter((_, i) => i !== idx));
-                              }}
-                              className="p-1 hover:bg-rose-50 text-rose-500 hover:text-rose-700 rounded border border-transparent hover:border-rose-200 transition-colors"
-                              title="Eliminar repuesto"
-                            >
-                              <Trash className="w-3.5 h-3.5" />
-                            </button>
                           </div>
                         </div>
                       </div>

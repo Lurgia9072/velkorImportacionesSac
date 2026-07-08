@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import { Product, Order } from '../types';
+import { Product, Order, CartItem } from '../types';
 import { X, CheckCircle, Send, Phone, MapPin, User, Hash, MessageCircle } from 'lucide-react';
 import { createOrder } from '../firebase';
 
 interface OrderFormModalProps {
-  cartItems: { product: Product; quantity: number }[];
+  cartItems: CartItem[];
   onClose: () => void;
   onSuccess: () => void;
 }
@@ -55,6 +55,8 @@ export const OrderFormModal: React.FC<OrderFormModalProps> = ({ cartItems, onClo
           productPrice: item.product.showPrice ? item.product.price : 0,
           productCode: item.product.code || '',
           quantity: item.quantity,
+          unitType: item.unitType || 'unidades',
+          selectedQuantity: item.unitQuantity ?? item.quantity,
           requestType,
           paymentMethod,
           status: 'En seguimiento', // Initial status
@@ -68,7 +70,17 @@ export const OrderFormModal: React.FC<OrderFormModalProps> = ({ cartItems, onClo
       let itemsText = '';
       cartItems.forEach((item, idx) => {
         const codeText = item.product.code ? ` (Cód: ${item.product.code})` : '';
-        itemsText += `${idx + 1}. *${item.product.name}*${codeText}\n   Cantidad: ${item.quantity} und.\n\n`;
+        const brandText = item.product.brand ? ` [Marca: ${item.product.brand}]` : '';
+        const isBox = item.unitType === 'cajas';
+        const displayQty = item.unitQuantity ?? item.quantity;
+        const totalUnits = item.quantity;
+
+        itemsText += `${idx + 1}. *${item.product.name}*${codeText}${brandText}\n`;
+        if (isBox) {
+          itemsText += `   Cantidad: ${displayQty} caja(s) de ${item.product.unitsPerBox || 1} und. (Total: ${totalUnits} unidades)\n\n`;
+        } else {
+          itemsText += `   Cantidad: ${displayQty} unidad(es)\n\n`;
+        }
       });
 
       const formattedMessage = `Nuevo pedido Velkor Importaciones:
@@ -99,6 +111,8 @@ Método de Pago Preferido: ${paymentMethod}`;
           imageUrl: item.product.imageUrl,
           imageUrls: item.product.imageUrls || [],
           quantity: item.quantity,
+          unitType: item.unitType || 'unidades',
+          selectedQuantity: item.unitQuantity ?? item.quantity,
           requestType: requestType,
           paymentMethod: paymentMethod,
           status: 'En seguimiento',
@@ -166,22 +180,27 @@ Método de Pago Preferido: ${paymentMethod}`;
               <p className="text-[10px] font-mono uppercase text-slate-400 font-bold tracking-wider border-b border-slate-200/60 pb-1">
                 Resumen de tu Carrito ({cartItems.length} ítems)
               </p>
-              {cartItems.map((item, idx) => (
-                <div key={idx} className="flex items-center gap-2.5 bg-white p-2 rounded-lg border border-slate-100 shadow-3xs">
-                  <img 
-                    src={item.product.imageUrl} 
-                    alt={item.product.name} 
-                    referrerPolicy="no-referrer"
-                    className="w-10 h-10 object-cover rounded-md border border-slate-200 shrink-0"
-                  />
-                  <div className="flex-1 min-w-0">
-                    <h4 className="text-slate-900 text-xs font-bold font-display truncate">{item.product.name}</h4>
-                    <p className="text-slate-500 text-[10px] font-mono">
-                      Cantidad: {item.quantity} und.
-                    </p>
+              {cartItems.map((item, idx) => {
+                const isBox = item.unitType === 'cajas';
+                const displayQty = item.unitQuantity ?? item.quantity;
+                return (
+                  <div key={idx} className="flex items-center gap-2.5 bg-white p-2 rounded-lg border border-slate-100 shadow-3xs">
+                    <img 
+                      src={item.product.imageUrl} 
+                      alt={item.product.name} 
+                      referrerPolicy="no-referrer"
+                      className="w-10 h-10 object-cover rounded-md border border-slate-200 shrink-0"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <h4 className="text-slate-900 text-xs font-bold font-display truncate">{item.product.name}</h4>
+                      <p className="text-slate-500 text-[10px] font-mono mt-0.5">
+                        Cantidad: <strong className="text-slate-800">{displayQty} {isBox ? 'caja(s)' : 'unid.'}</strong>
+                        {isBox && <span className="text-slate-400 block">({item.quantity} und. en total)</span>}
+                      </p>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
               <div className="border-t border-slate-200/80 pt-2 flex justify-between items-center text-xs font-bold font-mono">
                 <span className="text-slate-500 uppercase text-[10px]">Total de Repuestos:</span>
                 <span className="text-emerald-600 text-sm">

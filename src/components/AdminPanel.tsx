@@ -73,6 +73,8 @@ export const AdminPanel: React.FC = () => {
   const [prodWholesalePrice, setProdWholesalePrice] = useState<number>(0);
   const [prodRetailPrice, setProdRetailPrice] = useState<number>(0);
   const [prodArrivalDate, setProdArrivalDate] = useState('');
+  const [prodBrand, setProdBrand] = useState('');
+  const [prodUnitsPerBox, setProdUnitsPerBox] = useState<number>(0);
 
   // Image upload and processing states
   const [isDragging, setIsDragging] = useState(false);
@@ -299,6 +301,8 @@ export const AdminPanel: React.FC = () => {
     setProdWholesalePrice(0);
     setProdRetailPrice(0);
     setProdArrivalDate('');
+    setProdBrand('');
+    setProdUnitsPerBox(0);
     setIsEditingProduct(true);
   };
 
@@ -319,6 +323,8 @@ export const AdminPanel: React.FC = () => {
     setProdWholesalePrice(p.wholesalePrice || p.price || 0);
     setProdRetailPrice(p.retailPrice || p.price || 0);
     setProdArrivalDate(p.arrivalDate || '');
+    setProdBrand(p.brand || '');
+    setProdUnitsPerBox(p.unitsPerBox || 0);
     setIsEditingProduct(true);
   };
 
@@ -346,7 +352,9 @@ export const AdminPanel: React.FC = () => {
       motorcycleBrands: prodMotorcycleBrands,
       wholesalePrice: Number(prodWholesalePrice),
       retailPrice: Number(prodRetailPrice),
-      arrivalDate: prodArrivalDate
+      arrivalDate: prodArrivalDate,
+      brand: prodBrand,
+      unitsPerBox: Number(prodUnitsPerBox)
     };
 
     try {
@@ -1381,7 +1389,33 @@ export const AdminPanel: React.FC = () => {
                   </div>
 
                   {/* Optional Attributes Block */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-slate-50/50 p-4 rounded-xl border border-slate-100">
+                  <div className="grid grid-cols-1 md:grid-cols-5 gap-4 bg-slate-50/50 p-4 rounded-xl border border-slate-100">
+                    {/* Brand */}
+                    <div>
+                      <label className="block text-xs font-mono uppercase text-slate-500 mb-1">Marca del Producto</label>
+                      <input 
+                        id="form-prod-brand"
+                        type="text"
+                        placeholder="Ej: Velkor, OEM"
+                        value={prodBrand}
+                        onChange={e => setProdBrand(e.target.value)}
+                        className="w-full bg-white border border-slate-200 focus:border-emerald-500 rounded-lg px-3 py-2 text-sm focus:outline-hidden"
+                      />
+                    </div>
+
+                    {/* Units per Box */}
+                    <div>
+                      <label className="block text-xs font-mono uppercase text-slate-500 mb-1">Cant. por Caja</label>
+                      <input 
+                        id="form-prod-units-per-box"
+                        type="number"
+                        placeholder="Ej: 300"
+                        value={prodUnitsPerBox || ''}
+                        onChange={e => setProdUnitsPerBox(Number(e.target.value))}
+                        className="w-full bg-white border border-slate-200 focus:border-emerald-500 rounded-lg px-3 py-2 text-sm focus:outline-hidden"
+                      />
+                    </div>
+
                     {/* Colors */}
                     <div>
                       <label className="block text-xs font-mono uppercase text-slate-500 mb-1">Colores (Opcional)</label>

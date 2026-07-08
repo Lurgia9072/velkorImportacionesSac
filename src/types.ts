@@ -17,6 +17,15 @@ export interface Product {
   retailPrice?: number;       // Only visible to administrators
   arrivalDate?: string;       // Expected delivery date from China for upcoming imports
   code?: string;              // Product code VK
+  brand?: string;             // Brand of the product
+  unitsPerBox?: number;       // Quantity of units per box (e.g. 300)
+}
+
+export interface CartItem {
+  product: Product;
+  quantity: number; // total units
+  unitType?: 'unidades' | 'cajas';
+  unitQuantity?: number; // chosen quantity in units/boxes
 }
 
 export interface Order {
@@ -30,6 +39,8 @@ export interface Order {
   productPrice: number;
   productCode?: string;       // Saved product code VK
   quantity: number;
+  unitType?: 'unidades' | 'cajas'; // Unit type chosen
+  selectedQuantity?: number;  // Number of units or boxes chosen
   requestType: 'Compra directa' | 'Consulta' | 'Cotización';
   paymentMethod: '50/50' | '20% adelanto / 80% entrega' | 'Otro';
   status: 'En seguimiento' | 'Vendido' | 'Despachado' | 'En entrega' | 'En envío' | 'Entregado' | 'Pagado' | 'Rechazado' | 'No pagó' | 'Venta cerrada' | 'No compró';
