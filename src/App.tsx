@@ -336,7 +336,7 @@ export default function App() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           {/* Logo & Corporate Title */}
           <div className="flex items-center gap-3 cursor-pointer" onClick={() => handleNavigate('catalog')}>
-            <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-extrabold shadow-md overflow-hidden ${logoUrl ? 'bg-white border border-slate-200' : 'bg-emerald-500 text-slate-950 shadow-emerald-500/20'}`}>
+            <div className={`w-10 h-12 rounded-xl flex items-center justify-center font-extrabold shadow-md overflow-hidden ${logoUrl ? '' : 'bg-emerald-500 text-slate-950 shadow-emerald-500/20'}`}>
               {logoUrl ? (
                 <img src={logoUrl} alt="Velkor Logo" className="w-full h-full object-contain p-0.5" />
               ) : (
@@ -390,11 +390,11 @@ export default function App() {
       {activeView === 'catalog' && (
         <div 
           id="hero-banner"
-          className="relative w-full overflow-hidden h-[180px] md:h-[220px] border-b border-slate-200 bg-slate-900 text-white select-none transition-all duration-700 ease-in-out"
+          className="relative w-full overflow-hidden h-[200px] md:h-[350px] border-b border-slate-200 bg-slate-900 text-white select-none transition-all duration-700 ease-in-out"
           style={{ backgroundImage: `url(${banners[activeBannerIdx].image})`, backgroundSize: 'cover', backgroundPosition: 'center' }}
         >
           {/* Overlay to darken background for high contrast text readability */}
-          <div className="absolute inset-0 bg-black/50" />
+          <div className="absolute inset-0 bg-black/30" />
           
           <div className="relative z-10 max-w-7xl w-full h-full mx-auto px-4 sm:px-6 flex flex-col justify-center space-y-1.5 md:space-y-2">
             <div>
@@ -753,7 +753,7 @@ export default function App() {
             <div className="space-y-3">
               <div className="flex items-center justify-center md:justify-start gap-2.5">
                 {logoUrl ? (
-                  <div className="w-7 h-7 bg-white rounded-lg flex items-center justify-center p-0.5 border border-neutral-800 shadow-inner overflow-hidden">
+                  <div className="w-10 h-10 rounded-lg flex items-center justify-center p-0.5 border border-neutral-800 shadow-inner overflow-hidden">
                     <img src={logoUrl} alt="Logo" className="w-full h-full object-contain" />
                   </div>
                 ) : (
