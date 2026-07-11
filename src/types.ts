@@ -53,12 +53,19 @@ export interface Order {
 
 export const CATEGORIES = [
   'Motor',
-  'Frenos',
+  'Sistema eléctrico',
+  'Sistema de frenos',
   'Transmisión',
-  'Llantas & Cámaras',
-  'Sistema Eléctrico',
-  'Suspensiones',
-  'Accesorios'
+  'Suspensiones y dirección',
+  'Accesorios y equipamiento',
+  'Iluminación',
+  'Lubricantes y mantenimiento',
+  'Admisión y escape',
+  'Llantas y neumáticos',
+  'Carrocería y estetica',
+  'Tornillería y ferretería',
+   'Implementos de seguridad',
+
 ] as const;
 
 export interface StoreConfig {
