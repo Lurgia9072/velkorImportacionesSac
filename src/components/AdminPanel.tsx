@@ -445,8 +445,38 @@ export const AdminPanel: React.FC = () => {
           return;
         }
 
-        // Get headers from first row keys
-        const headers = Object.keys(jsonData[0]);
+        // Get headers from first row of the worksheet directly, and scan all rows to ensure empty/sparse columns are never missed
+        const headersSet = new Set<string>();
+        if (worksheet && worksheet['!ref']) {
+          try {
+            const range = XLSX.utils.decode_range(worksheet['!ref']);
+            const firstRowIdx = range.s.r;
+            for (let C = range.s.c; C <= range.e.c; ++C) {
+              const cellAddress = XLSX.utils.encode_cell({ r: firstRowIdx, c: C });
+              const cell = worksheet[cellAddress];
+              if (cell && cell.v !== undefined && cell.v !== null) {
+                const headerText = String(cell.v).trim();
+                if (headerText) {
+                  headersSet.add(headerText);
+                }
+              }
+            }
+          } catch (e) {
+            console.error('Error decoding range to fetch headers:', e);
+          }
+        }
+
+        // Also accumulate keys from ALL rows in jsonData to ensure no parsed keys are missed
+        jsonData.forEach(row => {
+          Object.keys(row).forEach(k => {
+            const trimmed = k.trim();
+            if (trimmed) {
+              headersSet.add(trimmed);
+            }
+          });
+        });
+
+        const headers = Array.from(headersSet);
         setExcelHeaders(headers);
         setExcelRows(jsonData);
 
