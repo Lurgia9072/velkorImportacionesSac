@@ -8,8 +8,11 @@ import {
   getOrders, 
   updateOrder,
   getStoreConfig,
-  updateStoreConfig
+  updateStoreConfig,
+  db
 } from '../firebase';
+import { writeBatch, doc, collection } from 'firebase/firestore';
+import * as XLSX from 'xlsx';
 import { 
   Shield, 
   Lock, 
@@ -37,7 +40,9 @@ import {
   MessageSquare,
   Sliders,
   Upload,
-  Image
+  Image,
+  X,
+  Search
 } from 'lucide-react';
 
 export const AdminPanel: React.FC = () => {
@@ -84,6 +89,43 @@ export const AdminPanel: React.FC = () => {
   const [storeLogo, setStoreLogo] = useState('');
   const [storeBanner, setStoreBanner] = useState('');
   const [isSavingSettings, setIsSavingSettings] = useState(false);
+
+  // Excel Import States
+  const [isImportingExcel, setIsImportingExcel] = useState(false);
+  const [excelRows, setExcelRows] = useState<any[]>([]);
+  const [excelHeaders, setExcelHeaders] = useState<string[]>([]);
+  const [mappedFields, setMappedFields] = useState<Record<string, string>>({
+    code: '',
+    name: '',
+    imageUrl: '',
+    brand: '',
+    price: '',
+    unitsPerBox: '',
+    category: ''
+  });
+  const [defaultCategory, setDefaultCategory] = useState<string>(CATEGORIES[0]);
+  const [defaultStatus, setDefaultStatus] = useState<Product['status']>('Catálogo general');
+  const [defaultStock, setDefaultStock] = useState<number>(10);
+  const [defaultUnitsPerBox, setDefaultUnitsPerBox] = useState<number>(100);
+  const [autoGenCodes, setAutoGenCodes] = useState(false);
+  const [autoGenPrefix, setAutoGenPrefix] = useState('VL-');
+  const [autoGenStartNum, setAutoGenStartNum] = useState(1);
+
+  // Search input inside Admin Product inventory list
+  const [adminSearchQuery, setAdminSearchQuery] = useState('');
+  const [importProgress, setImportProgress] = useState<{
+    current: number;
+    total: number;
+    status: 'idle' | 'parsing' | 'uploading' | 'completed' | 'error';
+    successCount: number;
+    errorCount: number;
+  }>({
+    current: 0,
+    total: 0,
+    status: 'idle',
+    successCount: 0,
+    errorCount: 0
+  });
 
   const processImageFiles = async (files: FileList | File[]) => {
     if (!files || files.length === 0) return;
@@ -330,11 +372,16 @@ export const AdminPanel: React.FC = () => {
 
   const handleSaveProduct = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!prodName || !prodDescription) {
-      alert('Nombre y descripción son obligatorios');
+    if (!prodName) {
+      alert('El Nombre Comercial del Repuesto es obligatorio');
+      return;
+    }
+    if (!prodCode) {
+      alert('El Código del Repuesto es obligatorio');
       return;
     }
 
+    const finalDescription = prodDescription.trim() || `Repuesto ${prodName} de alta calidad, marca ${prodBrand || 'Velkor'}. Código de repuesto: ${prodCode || 'N/A'}.`;
     const firstImage = prodImageUrls.length > 0 ? prodImageUrls[0] : (prodImageUrl || 'https://images.unsplash.com/photo-1609630875171-b1321377ee65?auto=format&fit=crop&w=600&q=80');
 
     const payload: Omit<Product, 'id'> = {
@@ -344,7 +391,7 @@ export const AdminPanel: React.FC = () => {
       showPrice: prodShowPrice,
       category: prodCategory,
       status: prodStatus,
-      description: prodDescription,
+      description: finalDescription,
       stock: Number(prodStock),
       imageUrl: firstImage,
       imageUrls: prodImageUrls,
@@ -371,6 +418,225 @@ export const AdminPanel: React.FC = () => {
       console.error('Error saving product:', err);
       alert('Ocurrió un error al guardar');
     }
+  };
+
+  // --- Excel Import & Parsing Actions ---
+  const handleExcelImportFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setImportProgress(prev => ({ ...prev, status: 'parsing' }));
+
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      try {
+        const data = evt.target?.result;
+        if (!data) throw new Error('No se pudo leer el archivo.');
+
+        const workbook = XLSX.read(data, { type: 'array' });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        
+        // Convert to JSON
+        const jsonData = XLSX.utils.sheet_to_json<any>(worksheet);
+        if (jsonData.length === 0) {
+          alert('El archivo Excel está vacío.');
+          setImportProgress(prev => ({ ...prev, status: 'idle' }));
+          return;
+        }
+
+        // Get headers from first row keys
+        const headers = Object.keys(jsonData[0]);
+        setExcelHeaders(headers);
+        setExcelRows(jsonData);
+
+        // Smart headers auto-mapping
+        const autoMap: Record<string, string> = {
+          code: '',
+          name: '',
+          imageUrl: '',
+          brand: '',
+          price: '',
+          unitsPerBox: '',
+          category: ''
+        };
+
+        headers.forEach(h => {
+          const lower = h.toLowerCase().trim();
+          if (/código|codigo|sku|id/i.test(lower)) {
+            autoMap.code = h;
+          } else if (/nombre|producto|repuesto|comercial/i.test(lower)) {
+            autoMap.name = h;
+          } else if (/imagen|image|foto|url|link/i.test(lower)) {
+            autoMap.imageUrl = h;
+          } else if (/marca|brand|fabricante/i.test(lower)) {
+            autoMap.brand = h;
+          } else if (/precio|price|costo|s\/\./i.test(lower)) {
+            autoMap.price = h;
+          } else if (/caja|box|unidades por caja|cant.*caja|cantidad por caja/i.test(lower)) {
+            autoMap.unitsPerBox = h;
+          } else if (/categoría|categoria|category|grupo/i.test(lower)) {
+            autoMap.category = h;
+          }
+        });
+
+        // Fallbacks if not auto-detected
+        if (!autoMap.code) autoMap.code = headers.find(h => /cod/i.test(h)) || '';
+        if (!autoMap.name) autoMap.name = headers.find(h => /nom/i.test(h)) || '';
+        if (!autoMap.imageUrl) autoMap.imageUrl = headers.find(h => /img|url|foto/i.test(h)) || '';
+        if (!autoMap.price) autoMap.price = headers.find(h => /pre|cos/i.test(h)) || '';
+        if (!autoMap.category) autoMap.category = headers.find(h => /cat/i.test(h)) || '';
+
+        setMappedFields(autoMap);
+        setImportProgress(prev => ({ ...prev, status: 'idle' }));
+      } catch (err) {
+        console.error('Error parsing Excel:', err);
+        alert('Ocurrió un error al procesar el archivo Excel. Asegúrese de que sea un archivo válido.');
+        setImportProgress(prev => ({ ...prev, status: 'idle' }));
+      }
+    };
+
+    reader.onerror = () => {
+      alert('Error al leer el archivo.');
+      setImportProgress(prev => ({ ...prev, status: 'idle' }));
+    };
+
+    reader.readAsArrayBuffer(file);
+  };
+
+  const startBatchImport = async () => {
+    if (excelRows.length === 0) return;
+    
+    // Verify required mapping for minimally required fields
+    if (!mappedFields.name || (!mappedFields.code && !autoGenCodes)) {
+      alert('Debe mapear al menos el Nombre del Producto (o activar la Autogeneración de Códigos) para poder realizar la importación.');
+      return;
+    }
+
+    setImportProgress({
+      current: 0,
+      total: excelRows.length,
+      status: 'uploading',
+      successCount: 0,
+      errorCount: 0
+    });
+
+    const batchSize = 100;
+    let success = 0;
+    let errors = 0;
+
+    for (let i = 0; i < excelRows.length; i += batchSize) {
+      const chunk = excelRows.slice(i, i + batchSize);
+      const batch = writeBatch(db);
+      const productsCol = collection(db, 'products');
+
+      for (let j = 0; j < chunk.length; j++) {
+        const row = chunk[j];
+        const rowIndex = i + j;
+        try {
+          const nameVal = String(row[mappedFields.name] || '').trim();
+          const brandVal = String(row[mappedFields.brand] || '').trim();
+          const priceVal = Number(row[mappedFields.price] || 0);
+          
+          let codeVal = '';
+          if (autoGenCodes) {
+            const seqNumber = Number(autoGenStartNum) + rowIndex;
+            codeVal = `${autoGenPrefix}${String(seqNumber).padStart(4, '0')}`;
+          } else {
+            codeVal = String(row[mappedFields.code] || '').trim();
+            // If the code is blank OR if it's a simple number (e.g. "1", "2"), auto-generate based on pattern
+            const isNumericOnly = /^\d+$/.test(codeVal);
+            if (!codeVal || isNumericOnly) {
+              const seqNumber = Number(autoGenStartNum) + rowIndex;
+              codeVal = `${autoGenPrefix}${String(seqNumber).padStart(4, '0')}`;
+            }
+          }
+
+          let unitsPerBoxVal = Number(row[mappedFields.unitsPerBox] || 0);
+          if (!unitsPerBoxVal || isNaN(unitsPerBoxVal)) {
+            unitsPerBoxVal = Number(defaultUnitsPerBox) || 0;
+          }
+
+          // Smart Category Normalization & Matching
+          const categoryVal = mappedFields.category ? String(row[mappedFields.category] || '').trim() : '';
+          let matchedCategory = defaultCategory;
+          if (categoryVal) {
+            const cleaned = categoryVal.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+            const found = CATEGORIES.find(cat => {
+              const catCleaned = cat.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+              return catCleaned.includes(cleaned) || cleaned.includes(catCleaned);
+            });
+            if (found) {
+              matchedCategory = found;
+            }
+          }
+
+          if (!nameVal) {
+            errors++;
+            continue;
+          }
+
+          const fallbackDesc = `Repuesto ${nameVal} de marca ${brandVal || 'Velkor'}. Código de repuesto: ${codeVal}. Cantidad por caja: ${unitsPerBoxVal || 'N/A'}.`;
+          const imageVal = String(row[mappedFields.imageUrl] || '').trim();
+          const firstImage = imageVal || 'https://images.unsplash.com/photo-1609630875171-b1321377ee65?auto=format&fit=crop&w=600&q=80';
+
+          const productData: Omit<Product, 'id'> = {
+            name: nameVal,
+            code: codeVal,
+            price: priceVal,
+            showPrice: true,
+            category: matchedCategory,
+            status: defaultStatus,
+            description: fallbackDesc,
+            stock: Number(defaultStock),
+            imageUrl: firstImage,
+            imageUrls: [firstImage],
+            brand: brandVal,
+            unitsPerBox: unitsPerBoxVal,
+            colors: '',
+            motorcycleBrands: '',
+            wholesalePrice: priceVal,
+            retailPrice: priceVal,
+            arrivalDate: '',
+            views: 0,
+            sales: 0
+          };
+
+          const newDocRef = doc(productsCol);
+          batch.set(newDocRef, productData);
+          success++;
+        } catch (err) {
+          console.error("Error processing row:", row, err);
+          errors++;
+        }
+      }
+
+      try {
+        await batch.commit();
+      } catch (dbErr) {
+        console.error("Error committing batch:", dbErr);
+        errors += chunk.length;
+        success -= chunk.length;
+      }
+
+      setImportProgress(prev => ({
+        ...prev,
+        current: Math.min(i + batchSize, excelRows.length),
+        successCount: success,
+        errorCount: errors
+      }));
+    }
+
+    setImportProgress(prev => ({
+      ...prev,
+      status: 'completed'
+    }));
+
+    alert(`Importación finalizada.\nCorrectos: ${success}\nErrores/Omitidos: ${errors}`);
+    setIsImportingExcel(false);
+    setExcelRows([]);
+    setExcelHeaders([]);
+    loadData();
   };
 
   const handleDeleteProduct = async (id: string) => {
@@ -1123,14 +1389,36 @@ export const AdminPanel: React.FC = () => {
                   <p className="text-slate-500 text-xs mt-0.5 font-mono">Modifica, elimina o añade nuevos repuestos al catálogo visible para los clientes.</p>
                 </div>
                 {!isEditingProduct && (
-                  <button
-                    id="btn-add-new-product"
-                    onClick={handleOpenNewProduct}
-                    className="bg-emerald-500 hover:bg-emerald-600 text-black font-display font-extrabold text-xs px-4 py-2.5 rounded-lg flex items-center gap-1.5 shadow-sm transition-colors"
-                  >
-                    <Plus className="w-4 h-4" />
-                    Nuevo Repuesto
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      id="btn-import-excel"
+                      type="button"
+                      onClick={() => {
+                        setIsImportingExcel(true);
+                        setExcelRows([]);
+                        setExcelHeaders([]);
+                        setImportProgress({
+                          current: 0,
+                          total: 0,
+                          status: 'idle',
+                          successCount: 0,
+                          errorCount: 0
+                        });
+                      }}
+                      className="bg-slate-900 hover:bg-slate-800 text-white font-display font-extrabold text-xs px-4 py-2.5 rounded-lg flex items-center gap-1.5 shadow-sm transition-colors border border-slate-700"
+                    >
+                      <Download className="w-4 h-4 text-emerald-400" />
+                      Importar Excel
+                    </button>
+                    <button
+                      id="btn-add-new-product"
+                      onClick={handleOpenNewProduct}
+                      className="bg-emerald-500 hover:bg-emerald-600 text-black font-display font-extrabold text-xs px-4 py-2.5 rounded-lg flex items-center gap-1.5 shadow-sm transition-colors"
+                    >
+                      <Plus className="w-4 h-4" />
+                      Nuevo Repuesto
+                    </button>
+                  </div>
                 )}
               </div>
 
@@ -1475,12 +1763,11 @@ export const AdminPanel: React.FC = () => {
 
                     {/* Description */}
                     <div className="md:col-span-3">
-                      <label className="block text-xs font-mono uppercase text-slate-500 mb-1">Descripción Detallada *</label>
+                      <label className="block text-xs font-mono uppercase text-slate-500 mb-1">Descripción Detallada (Opcional)</label>
                       <textarea 
                         id="form-prod-desc"
                         rows={3}
-                        required
-                        placeholder="Escriba especificaciones técnicas, compatibilidad con motos, materiales de fabricación, etc."
+                        placeholder="Escriba especificaciones técnicas, compatibilidad con motos, materiales de fabricación, etc. (Opcional - Se auto-generará si se deja en blanco)"
                         value={prodDescription}
                         onChange={e => setProdDescription(e.target.value)}
                         className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 rounded-lg px-3 py-2 text-sm focus:outline-hidden"
@@ -1534,15 +1821,73 @@ export const AdminPanel: React.FC = () => {
                 ))}
               </div>
 
+              {/* Search Bar for Inventory */}
+              <div className="p-4 bg-white border-b border-slate-200 flex flex-col sm:flex-row items-center gap-3">
+                <div className="relative w-full sm:max-w-md">
+                  <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <Search className="w-4 h-4 text-slate-400" />
+                  </span>
+                  <input
+                    type="text"
+                    value={adminSearchQuery}
+                    onChange={e => setAdminSearchQuery(e.target.value)}
+                    placeholder="Buscar por nombre, código, marca o categoría..."
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg pl-9 pr-8 py-1.5 text-xs focus:outline-hidden text-slate-700 font-semibold"
+                  />
+                  {adminSearchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setAdminSearchQuery('')}
+                      className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+                <div className="text-[11px] text-slate-400 font-mono sm:ml-auto">
+                  Encontrados: <strong className="text-slate-800">{
+                    products.filter(p => {
+                      if (inventoryFilterStatus !== 'Todos') {
+                        if (inventoryFilterStatus === 'MasVendidos') {
+                          if (!(p.sales !== undefined && p.sales > 0)) return false;
+                        } else {
+                          if (p.status !== inventoryFilterStatus) return false;
+                        }
+                      }
+                      if (adminSearchQuery.trim()) {
+                        const q = adminSearchQuery.toLowerCase().trim();
+                        return (p.name || '').toLowerCase().includes(q) || 
+                               (p.code || '').toLowerCase().includes(q) || 
+                               (p.brand || '').toLowerCase().includes(q) || 
+                               (p.category || '').toLowerCase().includes(q);
+                      }
+                      return true;
+                    }).length
+                  }</strong> repuestos
+                </div>
+              </div>
+
               {/* Product Inventory Table / Grid */}
               <div className="bg-white border-t border-slate-200 overflow-hidden shadow-xs">
                 {products.filter(p => {
-                  if (inventoryFilterStatus === 'Todos') return true;
-                  if (inventoryFilterStatus === 'MasVendidos') return (p.sales !== undefined && p.sales > 0);
-                  return p.status === inventoryFilterStatus;
+                  if (inventoryFilterStatus !== 'Todos') {
+                    if (inventoryFilterStatus === 'MasVendidos') {
+                      if (!(p.sales !== undefined && p.sales > 0)) return false;
+                    } else {
+                      if (p.status !== inventoryFilterStatus) return false;
+                    }
+                  }
+                  if (adminSearchQuery.trim()) {
+                    const q = adminSearchQuery.toLowerCase().trim();
+                    return (p.name || '').toLowerCase().includes(q) || 
+                           (p.code || '').toLowerCase().includes(q) || 
+                           (p.brand || '').toLowerCase().includes(q) || 
+                           (p.category || '').toLowerCase().includes(q);
+                  }
+                  return true;
                 }).length === 0 ? (
                   <div className="p-12 text-center text-slate-400">
-                    No hay productos en esta categoría. Haz click en "Nuevo Repuesto" para crear uno o cambia de filtro.
+                    No se encontraron repuestos con el filtro o término de búsqueda ingresado.
                   </div>
                 ) : (
                   <div className="overflow-x-auto">
@@ -1561,9 +1906,21 @@ export const AdminPanel: React.FC = () => {
                       <tbody className="divide-y divide-slate-100">
                         {products
                           .filter(p => {
-                            if (inventoryFilterStatus === 'Todos') return true;
-                            if (inventoryFilterStatus === 'MasVendidos') return (p.sales !== undefined && p.sales > 0);
-                            return p.status === inventoryFilterStatus;
+                            if (inventoryFilterStatus !== 'Todos') {
+                              if (inventoryFilterStatus === 'MasVendidos') {
+                                if (!(p.sales !== undefined && p.sales > 0)) return false;
+                              } else {
+                                if (p.status !== inventoryFilterStatus) return false;
+                              }
+                            }
+                            if (adminSearchQuery.trim()) {
+                              const q = adminSearchQuery.toLowerCase().trim();
+                              return (p.name || '').toLowerCase().includes(q) || 
+                                     (p.code || '').toLowerCase().includes(q) || 
+                                     (p.brand || '').toLowerCase().includes(q) || 
+                                     (p.category || '').toLowerCase().includes(q);
+                            }
+                            return true;
                           })
                           .map(p => (
                             <tr key={p.id} className="hover:bg-slate-50/50 transition-colors">
@@ -1665,6 +2022,401 @@ export const AdminPanel: React.FC = () => {
                   </div>
                 )}
               </div>
+
+              {/* ==================== EXCEL IMPORT MODAL ==================== */}
+              {isImportingExcel && (
+                <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+                  <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200 animate-duration-200">
+                    
+                    {/* Header */}
+                    <div className="bg-slate-950 px-6 py-4 flex items-center justify-between text-white">
+                      <div className="flex items-center gap-2">
+                        <Download className="w-5 h-5 text-emerald-400" />
+                        <div>
+                          <h4 className="font-display font-black text-sm uppercase tracking-wider">Importador de Repuestos desde Excel</h4>
+                          <p className="text-[10px] font-mono text-slate-400">Velkor Importaciones SAC — Lotes de 100 en 100</p>
+                        </div>
+                      </div>
+                      {importProgress.status !== 'uploading' && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsImportingExcel(false);
+                            setExcelRows([]);
+                            setExcelHeaders([]);
+                          }}
+                          className="text-slate-400 hover:text-white transition-colors"
+                        >
+                          <X className="w-5 h-5" />
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Content */}
+                    <div className="p-6 overflow-y-auto flex-1 space-y-6">
+                      
+                      {/* Step 1: File Selection */}
+                      {excelRows.length === 0 && (
+                        <div className="space-y-4">
+                          <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-4 text-emerald-800 text-xs flex gap-3">
+                            <span className="text-base">💡</span>
+                            <div>
+                              <p className="font-bold">Formato del Excel Recomendado</p>
+                              <p className="mt-1 leading-relaxed">
+                                El archivo Excel debe contener las siguientes columnas para una importación óptima:
+                              </p>
+                              <ul className="list-disc list-inside mt-1 font-mono text-[10px] space-y-0.5 text-emerald-700">
+                                <li><strong>Código de Producto</strong> (Ej: VK-4028-FZ)</li>
+                                <li><strong>Nombre del Producto</strong> (Ej: Kit de arrastre Velkor para Yamaha FZ16)</li>
+                                <li><strong>Imagen</strong> (URL web de la foto)</li>
+                                <li><strong>Marca</strong> (Ej: Velkor)</li>
+                                <li><strong>Precio (S/)</strong> (Monto al por mayor/menor, Ej: 45)</li>
+                                <li><strong>Cantidad por Caja</strong> (Ej: 200)</li>
+                              </ul>
+                              <p className="mt-2 text-[10px] italic font-medium">
+                                * Nota: Se detectará automáticamente el nombre de las columnas y se dividirá el procesamiento en lotes de 100 registros para evitar sobrecargar la base de datos.
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="border-2 border-dashed border-slate-300 rounded-2xl p-8 text-center bg-slate-50 hover:bg-slate-50/50 cursor-pointer transition-all relative flex flex-col items-center justify-center min-h-[220px]">
+                            <input
+                              type="file"
+                              accept=".xlsx, .xls, .csv"
+                              onChange={handleExcelImportFile}
+                              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                            />
+                            {importProgress.status === 'parsing' ? (
+                              <div className="flex flex-col items-center">
+                                <RefreshCw className="w-10 h-10 text-emerald-500 animate-spin mb-3" />
+                                <span className="text-sm font-semibold text-slate-700">Leyendo y analizando archivo Excel...</span>
+                                <span className="text-xs text-slate-400 mt-1">Por favor espere.</span>
+                              </div>
+                            ) : (
+                              <div className="flex flex-col items-center">
+                                <div className="p-4 bg-emerald-50 text-emerald-600 rounded-full mb-3">
+                                  <Download className="w-8 h-8" />
+                                </div>
+                                <span className="text-sm font-bold text-slate-800">Seleccionar o Arrastrar Archivo Excel</span>
+                                <span className="text-xs text-slate-400 mt-1">Formatos permitidos: .xlsx, .xls, .csv</span>
+                                <span className="text-xs text-emerald-600 font-semibold underline mt-3">Examinar archivos</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Step 2: Mapping and Defaults */}
+                      {excelRows.length > 0 && importProgress.status !== 'uploading' && importProgress.status !== 'completed' && (
+                        <div className="space-y-6">
+                          
+                          {/* File info card */}
+                          <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <div className="p-2 bg-emerald-100 text-emerald-700 rounded-lg">
+                                <CheckCircle className="w-5 h-5" />
+                              </div>
+                              <div>
+                                <span className="text-xs font-mono text-slate-400 font-bold uppercase tracking-wider">Archivo Excel cargado</span>
+                                <p className="text-xs font-bold text-slate-800 mt-0.5">
+                                  Se detectaron <span className="text-emerald-600 font-black">{excelRows.length}</span> registros listos para importar.
+                                </p>
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setExcelRows([]);
+                                setExcelHeaders([]);
+                              }}
+                              className="text-xs font-mono text-rose-600 hover:underline"
+                            >
+                              Cambiar archivo
+                            </button>
+                          </div>
+
+                          {/* Column Mapping Section */}
+                          <div>
+                            <span className="block text-[11px] font-mono uppercase text-slate-400 mb-3 tracking-wider font-extrabold">
+                              1. Mapear Columnas de Excel
+                            </span>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              {[
+                                { key: 'code', label: 'Código de Producto / SKU *', desc: 'Identificador único del repuesto' },
+                                { key: 'name', label: 'Nombre del Producto / Comercial *', desc: 'Nombre que verá el cliente' },
+                                { key: 'imageUrl', label: 'Imagen (URL de la foto)', desc: 'Link de la imagen del producto' },
+                                { key: 'brand', label: 'Marca del Repuesto', desc: 'Velkor, OEM, etc.' },
+                                { key: 'price', label: 'Precio (S/) *', desc: 'Monto asignado al repuesto' },
+                                { key: 'unitsPerBox', label: 'Cantidad por Caja', desc: 'Capacidad de embalaje de la caja' },
+                                { key: 'category', label: 'Categoría del Repuesto', desc: 'Grupo o categoría del producto' }
+                              ].map(col => (
+                                <div key={col.key} className="space-y-1 bg-slate-50/50 p-3 rounded-xl border border-slate-100">
+                                  <label className="block text-xs font-bold text-slate-700">{col.label}</label>
+                                  <p className="text-[10px] text-slate-400 leading-tight">{col.desc}</p>
+                                  <select
+                                    value={mappedFields[col.key] || ''}
+                                    onChange={e => setMappedFields(prev => ({ ...prev, [col.key]: e.target.value }))}
+                                    className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs focus:outline-hidden focus:border-emerald-500 font-mono font-bold font-semibold"
+                                  >
+                                    <option value="">-- No importar / Omitir --</option>
+                                    {excelHeaders.map(header => (
+                                      <option key={header} value={header}>{header}</option>
+                                    ))}
+                                  </select>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* Code Auto-Generation & Defaults section */}
+                          <div className="border-t border-slate-100 pt-5 space-y-4">
+                            <span className="block text-[11px] font-mono uppercase text-slate-400 tracking-wider font-extrabold">
+                              2. Configuración por Defecto y Autogeneración de Códigos
+                            </span>
+
+                            {/* Sequential code generation box */}
+                            <div className="bg-gradient-to-br from-slate-50 to-emerald-50/30 border border-slate-200 rounded-xl p-4 space-y-3.5">
+                              <div className="flex items-center gap-2">
+                                <input
+                                  type="checkbox"
+                                  id="chk-auto-gen-codes"
+                                  checked={autoGenCodes}
+                                  onChange={e => setAutoGenCodes(e.target.checked)}
+                                  className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 border-slate-300"
+                                />
+                                <label htmlFor="chk-auto-gen-codes" className="text-xs font-black text-slate-800 cursor-pointer select-none">
+                                  Autogenerar códigos secuenciales ordenados (Ej: VL-0001, VL-0002...)
+                                </label>
+                              </div>
+
+                              <p className="text-[11px] text-slate-500 leading-normal">
+                                * Nota: Si activa esta casilla, o si los códigos del Excel están vacíos o contienen simples índices numéricos (como 1, 2, 3), se generarán códigos con el formato configurado a continuación para mantener el orden exacto de sus repuestos.
+                              </p>
+
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
+                                <div className="space-y-1">
+                                  <label className="block text-[11px] font-bold text-slate-600 uppercase">Prefijo del Código</label>
+                                  <input
+                                    type="text"
+                                    value={autoGenPrefix}
+                                    onChange={e => setAutoGenPrefix(e.target.value)}
+                                    placeholder="Ej: VL-"
+                                    className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-mono font-bold"
+                                    disabled={!autoGenCodes}
+                                  />
+                                </div>
+                                <div className="space-y-1">
+                                  <label className="block text-[11px] font-bold text-slate-600 uppercase">Iniciar desde número</label>
+                                  <input
+                                    type="number"
+                                    value={autoGenStartNum}
+                                    onChange={e => setAutoGenStartNum(Math.max(1, Number(e.target.value)))}
+                                    className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-mono font-bold"
+                                    disabled={!autoGenCodes}
+                                  />
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Defaults Grid */}
+                            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-100">
+                              <div>
+                                <label className="block text-xs font-bold text-slate-700 mb-1">Categoría por Defecto</label>
+                                <select
+                                  value={defaultCategory}
+                                  onChange={e => setDefaultCategory(e.target.value)}
+                                  className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs focus:outline-hidden focus:border-emerald-500 font-bold text-slate-700"
+                                >
+                                  {CATEGORIES.map(cat => (
+                                    <option key={cat} value={cat}>{cat}</option>
+                                  ))}
+                                </select>
+                              </div>
+                              <div>
+                                <label className="block text-xs font-bold text-slate-700 mb-1">Estado de Campaña</label>
+                                <select
+                                  value={defaultStatus}
+                                  onChange={e => setDefaultStatus(e.target.value as any)}
+                                  className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs focus:outline-hidden focus:border-emerald-500 font-mono font-bold"
+                                >
+                                  <option value="Catálogo general">Catálogo general</option>
+                                  <option value="Nuevo">Nuevo</option>
+                                  <option value="Promoción">Promoción</option>
+                                  <option value="Importación próxima">Importación próxima</option>
+                                  <option value="Agotado">Agotado</option>
+                                </select>
+                              </div>
+                              <div>
+                                <label className="block text-xs font-bold text-slate-700 mb-1">Stock de Unidades</label>
+                                <input
+                                  type="number"
+                                  value={defaultStock}
+                                  onChange={e => setDefaultStock(Number(e.target.value))}
+                                  className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs focus:outline-hidden focus:border-emerald-500 font-mono font-bold"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs font-bold text-slate-700 mb-1">Cant. por Caja por Defecto</label>
+                                <input
+                                  type="number"
+                                  value={defaultUnitsPerBox}
+                                  onChange={e => setDefaultUnitsPerBox(Math.max(0, Number(e.target.value)))}
+                                  placeholder="Ej: 100"
+                                  className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs focus:outline-hidden focus:border-emerald-500 font-mono font-bold"
+                                />
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* First 3 Rows Preview */}
+                          <div className="border-t border-slate-100 pt-5">
+                            <span className="block text-[11px] font-mono uppercase text-slate-400 mb-2 tracking-wider font-extrabold">
+                              3. Vista Previa de Datos Mapeados (Primeros 3 elementos)
+                            </span>
+                            <div className="border border-slate-200 rounded-xl overflow-hidden text-xs">
+                              <table className="w-full text-left font-mono">
+                                <thead className="bg-slate-50 text-[10px] text-slate-400 border-b border-slate-200 uppercase">
+                                  <tr>
+                                    <th className="p-2">Código</th>
+                                    <th className="p-2">Nombre del Producto</th>
+                                    <th className="p-2">Imagen</th>
+                                    <th className="p-2">Marca</th>
+                                    <th className="p-2">Precio</th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100 text-[11px]">
+                                  {excelRows.slice(0, 3).map((row, idx) => {
+                                    const code = row[mappedFields.code] || '-';
+                                    const name = row[mappedFields.name] || '-';
+                                    const image = row[mappedFields.imageUrl] || '-';
+                                    const brand = row[mappedFields.brand] || '-';
+                                    const price = row[mappedFields.price] || 0;
+                                    return (
+                                      <tr key={idx} className="hover:bg-slate-50">
+                                        <td className="p-2 text-emerald-600 font-bold">{code}</td>
+                                        <td className="p-2 text-slate-800 font-semibold truncate max-w-[180px]">{name}</td>
+                                        <td className="p-2 truncate max-w-[120px] text-slate-400 text-[10px]">{image}</td>
+                                        <td className="p-2 text-slate-500">{brand}</td>
+                                        <td className="p-2 text-slate-900 font-bold">S/. {Number(price).toFixed(2)}</td>
+                                      </tr>
+                                    );
+                                  })}
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+
+                        </div>
+                      )}
+
+                      {/* Step 3: Progress and Stats */}
+                      {(importProgress.status === 'uploading' || importProgress.status === 'completed') && (
+                        <div className="py-8 text-center space-y-6">
+                          
+                          {importProgress.status === 'uploading' ? (
+                            <div className="space-y-2">
+                              <RefreshCw className="w-12 h-12 text-emerald-500 animate-spin mx-auto mb-2" />
+                              <h5 className="font-display font-black text-slate-800 text-sm">Procesando Importación...</h5>
+                              <p className="text-xs text-slate-400 font-mono">
+                                Subiendo lote de productos. Por favor, no cierre esta ventana.
+                              </p>
+                            </div>
+                          ) : (
+                            <div className="space-y-2 animate-bounce">
+                              <CheckCircle className="w-12 h-12 text-emerald-500 mx-auto mb-2" />
+                              <h5 className="font-display font-black text-emerald-600 text-sm font-mono uppercase">¡Importación Exitosa!</h5>
+                              <p className="text-xs text-slate-500">
+                                Todos los repuestos válidos han sido añadidos a la base de datos de Velkor.
+                              </p>
+                            </div>
+                          )}
+
+                          {/* Progress bar */}
+                          <div className="space-y-1 max-w-md mx-auto">
+                            <div className="flex justify-between text-xs font-mono text-slate-500">
+                              <span>Progreso de Registros</span>
+                              <span>
+                                {importProgress.current} / {importProgress.total} ({Math.round((importProgress.current / importProgress.total) * 100) || 0}%)
+                              </span>
+                            </div>
+                            <div className="w-full bg-slate-100 rounded-full h-3 overflow-hidden border border-slate-200">
+                              <div 
+                                className="bg-gradient-to-r from-emerald-500 to-emerald-600 h-full transition-all duration-300"
+                                style={{ width: `${(importProgress.current / importProgress.total) * 100}%` }}
+                              />
+                            </div>
+                          </div>
+
+                          {/* Statistics counter */}
+                          <div className="grid grid-cols-2 gap-4 max-w-sm mx-auto bg-slate-50 p-4 rounded-xl border border-slate-200 text-center font-mono">
+                            <div className="text-center">
+                              <span className="text-[10px] text-slate-400 block uppercase">Correctos</span>
+                              <span className="text-xl font-black text-emerald-600">{importProgress.successCount}</span>
+                            </div>
+                            <div className="text-center border-l border-slate-200">
+                              <span className="text-[10px] text-slate-400 block uppercase">Errores / Omitidos</span>
+                              <span className="text-xl font-black text-slate-500">{importProgress.errorCount}</span>
+                            </div>
+                          </div>
+
+                        </div>
+                      )}
+
+                    </div>
+
+                    {/* Footer */}
+                    <div className="bg-slate-50 border-t border-slate-200 px-6 py-4 flex justify-end gap-2">
+                      {excelRows.length > 0 && importProgress.status !== 'uploading' && importProgress.status !== 'completed' && (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setExcelRows([]);
+                              setExcelHeaders([]);
+                            }}
+                            className="px-4 py-2 bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 rounded-lg text-xs font-semibold font-mono"
+                          >
+                            Volver a cargar
+                          </button>
+                          <button
+                            type="button"
+                            onClick={startBatchImport}
+                            className="px-5 py-2 bg-emerald-500 hover:bg-emerald-600 text-black rounded-lg text-xs font-extrabold flex items-center gap-1.5 shadow-sm transition-colors font-mono"
+                          >
+                            <CheckCircle className="w-4 h-4" />
+                            Iniciar Importación en Lotes
+                          </button>
+                        </>
+                      )}
+                      
+                      {importProgress.status === 'completed' && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsImportingExcel(false);
+                            setExcelRows([]);
+                            setExcelHeaders([]);
+                          }}
+                          className="px-5 py-2 bg-slate-950 hover:bg-slate-900 text-white rounded-lg text-xs font-bold transition-colors font-mono"
+                        >
+                          Cerrar Importador
+                        </button>
+                      )}
+
+                      {excelRows.length === 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setIsImportingExcel(false)}
+                          className="px-4 py-2 bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 rounded-lg text-xs font-semibold"
+                        >
+                          Cancelar
+                        </button>
+                      )}
+                    </div>
+
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

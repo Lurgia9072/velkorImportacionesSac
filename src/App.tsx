@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Product, CATEGORIES, CartItem } from './types';
 import { getProducts, getStoreConfig } from './firebase';
 import { ProductCard } from './components/ProductCard';
+import { ProductFullDetails } from './components/ProductFullDetails';
 import { ProductDetailsModal } from './components/ProductDetailsModal';
 import { OrderFormModal } from './components/OrderFormModal';
 import { AdminPanel } from './components/AdminPanel';
@@ -24,7 +25,8 @@ import {
   ClipboardList,
   ShoppingCart,
   Trash,
-  X
+  X,
+  Plus
 } from 'lucide-react';
 
 export default function App() {
@@ -95,6 +97,14 @@ export default function App() {
   const [selectedStatus, setSelectedStatus] = useState<string>('Todos');
   const [desktopCols, setDesktopCols] = useState<4 | 5 | 6>(5);
   const [activeBannerIdx, setActiveBannerIdx] = useState(0);
+
+  // Pagination / Lazy Loading
+  const [visibleCount, setVisibleCount] = useState(24);
+
+  // Reset pagination when search query, selected category, or status changes
+  useEffect(() => {
+    setVisibleCount(24);
+  }, [searchQuery, selectedCategory, selectedStatus]);
 
   const getGridColsClass = () => {
     switch (desktopCols) {
@@ -336,7 +346,7 @@ export default function App() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           {/* Logo & Corporate Title */}
           <div className="flex items-center gap-3 cursor-pointer" onClick={() => handleNavigate('catalog')}>
-            <div className={`w-10 h-12 rounded-xl flex items-center justify-center font-extrabold shadow-md overflow-hidden ${logoUrl ? '' : 'bg-emerald-500 text-slate-950 shadow-emerald-500/20'}`}>
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-extrabold shadow-md overflow-hidden ${logoUrl ? 'bg-white border border-slate-200' : 'bg-emerald-500 text-slate-950 shadow-emerald-500/20'}`}>
               {logoUrl ? (
                 <img src={logoUrl} alt="Velkor Logo" className="w-full h-full object-contain p-0.5" />
               ) : (
@@ -386,15 +396,15 @@ export default function App() {
         </div>
       </header>
 
-      {/* 2. Compact Rotative Banner Hero (Active only on Catalog view) */}
-      {activeView === 'catalog' && (
+      {/* 2. Compact Rotative Banner Hero (Active only on Catalog view when no product is selected) */}
+      {activeView === 'catalog' && !selectedProductDetails && (
         <div 
           id="hero-banner"
-          className="relative w-full overflow-hidden h-[200px] md:h-[350px] border-b border-slate-200 bg-slate-900 text-white select-none transition-all duration-700 ease-in-out"
+          className="relative w-full overflow-hidden h-[180px] md:h-[220px] border-b border-slate-200 bg-slate-900 text-white select-none transition-all duration-700 ease-in-out"
           style={{ backgroundImage: `url(${banners[activeBannerIdx].image})`, backgroundSize: 'cover', backgroundPosition: 'center' }}
         >
           {/* Overlay to darken background for high contrast text readability */}
-          <div className="absolute inset-0 bg-black/30" />
+          <div className="absolute inset-0 bg-black/75 backdrop-blur-[0.5px]" />
           
           <div className="relative z-10 max-w-7xl w-full h-full mx-auto px-4 sm:px-6 flex flex-col justify-center space-y-1.5 md:space-y-2">
             <div>
@@ -455,7 +465,16 @@ export default function App() {
         
         {/* ==================== VIEW A: CATALOG ==================== */}
         {activeView === 'catalog' && (
-          <div id="catalog-view" className="space-y-6 animate-fadeIn">
+          selectedProductDetails ? (
+            <ProductFullDetails 
+              product={selectedProductDetails}
+              allProducts={products}
+              onClose={() => setSelectedProductDetails(null)}
+              onOrder={handleAddToCart}
+              onSelectProduct={setSelectedProductDetails}
+            />
+          ) : (
+            <div id="catalog-view" className="space-y-6 animate-fadeIn">
             
             {/* Catalog Filter controls (Search & Filters Row) */}
             <div id="catalog-filters-section" className="bg-white border border-slate-200 rounded-xl p-3 shadow-[0_1px_3px_rgba(0,0,0,0.06)] space-y-3 scroll-mt-24">
@@ -592,19 +611,39 @@ export default function App() {
                 </button>
               </div>
             ) : (
-              <div className={getGridColsClass()}>
-                {filteredProducts.map(p => (
-                  <ProductCard 
-                    key={p.id} 
-                    product={p} 
-                    onSelect={handleSelectProduct} 
-                    onAddToCart={handleAddToCart} 
-                  />
-                ))}
+              <div className="space-y-6">
+                <div className={getGridColsClass()}>
+                  {filteredProducts.slice(0, visibleCount).map(p => (
+                    <ProductCard 
+                      key={p.id} 
+                      product={p} 
+                      onSelect={handleSelectProduct} 
+                      onAddToCart={handleAddToCart} 
+                    />
+                  ))}
+                </div>
+
+                {/* Pagination Load More Controls */}
+                {filteredProducts.length > visibleCount && (
+                  <div className="flex flex-col items-center justify-center pt-4 pb-8 space-y-2">
+                    <button
+                      id="btn-load-more"
+                      onClick={() => setVisibleCount(prev => prev + 24)}
+                      className="px-6 py-3 bg-white hover:bg-slate-100 text-slate-800 font-mono text-xs font-black rounded-xl border border-slate-200 hover:border-emerald-500/40 transition-all shadow-3xs cursor-pointer flex items-center gap-1.5 active:scale-[0.98]"
+                    >
+                      <Plus className="w-4 h-4 text-emerald-500 animate-pulse" />
+                      Cargar más repuestos en catálogo
+                    </button>
+                    <p className="text-[10px] text-slate-400 font-mono">
+                      Mostrando {Math.min(visibleCount, filteredProducts.length)} de {filteredProducts.length} repuestos
+                    </p>
+                  </div>
+                )}
               </div>
             )}
           </div>
-        )}
+        )
+      )}
 
         {/* ==================== VIEW B: CLIENT HISTORY ==================== */}
         {activeView === 'history' && (
@@ -753,7 +792,7 @@ export default function App() {
             <div className="space-y-3">
               <div className="flex items-center justify-center md:justify-start gap-2.5">
                 {logoUrl ? (
-                  <div className="w-10 h-10 rounded-lg flex items-center justify-center p-0.5 border border-neutral-800 shadow-inner overflow-hidden">
+                  <div className="w-7 h-7 bg-white rounded-lg flex items-center justify-center p-0.5 border border-neutral-800 shadow-inner overflow-hidden">
                     <img src={logoUrl} alt="Logo" className="w-full h-full object-contain" />
                   </div>
                 ) : (
@@ -886,15 +925,6 @@ export default function App() {
       </div>
 
       {/* 5. OVERLAYS & MODALS */}
-
-      {/* Product Details Sheet Overlay */}
-      {selectedProductDetails && (
-        <ProductDetailsModal 
-          product={selectedProductDetails} 
-          onClose={() => setSelectedProductDetails(null)} 
-          onOrder={handleAddToCart} 
-        />
-      )}
 
       {/* Checkout WhatsApp Request Form Overlay */}
       {isCartCheckoutOpen && (
