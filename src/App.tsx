@@ -400,11 +400,11 @@ export default function App() {
       {activeView === 'catalog' && !selectedProductDetails && (
         <div 
           id="hero-banner"
-          className="relative w-full overflow-hidden h-[180px] md:h-[220px] border-b border-slate-200 bg-slate-900 text-white select-none transition-all duration-700 ease-in-out"
+          className="relative w-full overflow-hidden h-[2500px] md:h-[280px] border-b border-slate-200 bg-slate-900 text-white select-none transition-all duration-700 ease-in-out"
           style={{ backgroundImage: `url(${banners[activeBannerIdx].image})`, backgroundSize: 'cover', backgroundPosition: 'center' }}
         >
           {/* Overlay to darken background for high contrast text readability */}
-          <div className="absolute inset-0 bg-black/75 backdrop-blur-[0.5px]" />
+          <div className="absolute inset-0 bg-black/20" />
           
           <div className="relative z-10 max-w-7xl w-full h-full mx-auto px-4 sm:px-6 flex flex-col justify-center space-y-1.5 md:space-y-2">
             <div>
