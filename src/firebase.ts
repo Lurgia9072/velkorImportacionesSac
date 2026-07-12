@@ -10,7 +10,13 @@ import {
   getDoc,
   setDoc,
   increment,
-  writeBatch
+  writeBatch,
+  query,
+  where,
+  orderBy,
+  limit as firestoreLimit,
+  startAfter,
+  DocumentSnapshot
 } from 'firebase/firestore';
 import { Product, Order, StoreConfig } from './types';
 
@@ -39,6 +45,56 @@ export async function getProducts(): Promise<Product[]> {
   } catch (error) {
     console.error("Error getting products from Firestore:", error);
     return [];
+  }
+}
+
+export async function getProductsPaged(
+  limitSize: number = 50,
+  startAfterDoc: DocumentSnapshot | null = null,
+  category?: string,
+  status?: string
+): Promise<{ products: Product[]; lastDoc: DocumentSnapshot | null; hasMore: boolean }> {
+  try {
+    const constraints: any[] = [];
+    
+    if (category && category !== 'Todos') {
+      constraints.push(where('category', '==', category));
+    }
+    
+    if (status && status !== 'Todos' && status !== 'MasVendidos') {
+      constraints.push(where('status', '==', status));
+    } else if (status === 'MasVendidos') {
+      constraints.push(where('sales', '>', 0));
+    }
+    
+    // Default alphabetical sorting of products
+    constraints.push(orderBy(status === 'MasVendidos' ? 'sales' : 'name'));
+    
+    if (startAfterDoc) {
+      constraints.push(startAfter(startAfterDoc));
+    }
+    
+    constraints.push(firestoreLimit(limitSize));
+    
+    const q = query(collection(db, 'products'), ...constraints);
+    const querySnapshot = await getDocs(q);
+    
+    const products: Product[] = [];
+    querySnapshot.forEach((docSnap) => {
+      products.push({ id: docSnap.id, ...docSnap.data() } as Product);
+    });
+    
+    const lastDoc = querySnapshot.docs[querySnapshot.docs.length - 1] || null;
+    const hasMore = querySnapshot.docs.length === limitSize;
+    
+    return {
+      products,
+      lastDoc,
+      hasMore
+    };
+  } catch (error) {
+    console.error("Error getting paged products from Firestore:", error);
+    return { products: [], lastDoc: null, hasMore: false };
   }
 }
 

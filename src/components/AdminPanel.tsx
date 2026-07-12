@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Product, Order, CATEGORIES } from '../types';
 import { 
   getProducts, 
+  getProductsPaged,
   createProduct, 
   updateProduct, 
   deleteProduct, 
@@ -57,6 +58,10 @@ export const AdminPanel: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const [adminLastVisible, setAdminLastVisible] = useState<any>(null);
+  const [adminHasMore, setAdminHasMore] = useState(false);
+  const [adminLoadingMore, setAdminLoadingMore] = useState(false);
 
   // CRUD Product Form States
   const [isEditingProduct, setIsEditingProduct] = useState(false);
@@ -234,9 +239,11 @@ export const AdminPanel: React.FC = () => {
   const loadData = async () => {
     setLoading(true);
     try {
-      const prods = await getProducts();
+      const result = await getProductsPaged(100, null);
       const ords = await getOrders();
-      setProducts(prods);
+      setProducts(result.products);
+      setAdminLastVisible(result.lastDoc);
+      setAdminHasMore(result.hasMore);
       setOrders(ords);
 
       const config = await getStoreConfig();
@@ -250,6 +257,28 @@ export const AdminPanel: React.FC = () => {
       setLoading(false);
     }
   };
+
+  // Progressive background loading for Admin inventory to fetch the rest of the database incrementally
+  useEffect(() => {
+    if (!isAuthenticated || loading || !adminHasMore || adminLoadingMore) return;
+
+    const timer = setTimeout(async () => {
+      try {
+        const result = await getProductsPaged(100, adminLastVisible);
+        setProducts(prev => {
+          const existingIds = new Set(prev.map(p => p.id));
+          const uniques = result.products.filter(p => !existingIds.has(p.id));
+          return [...prev, ...uniques];
+        });
+        setAdminLastVisible(result.lastDoc);
+        setAdminHasMore(result.hasMore);
+      } catch (err) {
+        console.error("Error loading remaining admin products in background:", err);
+      }
+    }, 2000); // 2 seconds between batch loads to avoid network clutter
+
+    return () => clearTimeout(timer);
+  }, [isAuthenticated, loading, adminHasMore, adminLastVisible, adminLoadingMore]);
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -1874,26 +1903,42 @@ export const AdminPanel: React.FC = () => {
                     </button>
                   )}
                 </div>
-                <div className="text-[11px] text-slate-400 font-mono sm:ml-auto">
-                  Encontrados: <strong className="text-slate-800">{
-                    products.filter(p => {
-                      if (inventoryFilterStatus !== 'Todos') {
-                        if (inventoryFilterStatus === 'MasVendidos') {
-                          if (!(p.sales !== undefined && p.sales > 0)) return false;
-                        } else {
-                          if (p.status !== inventoryFilterStatus) return false;
+                <div className="text-[11px] text-slate-400 font-mono sm:ml-auto flex flex-col sm:flex-row items-end sm:items-center gap-1 sm:gap-3">
+                  <div className="flex items-center gap-1.5">
+                    <span>Cargados:</span>
+                    <strong className="text-slate-800">{products.length}</strong>
+                    {adminHasMore ? (
+                      <span className="inline-flex items-center gap-1 text-emerald-600 font-bold bg-emerald-50 px-1.5 py-0.5 rounded-sm animate-pulse text-[10px]">
+                        Cargando...
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded-sm text-[10px]">
+                        Listo
+                      </span>
+                    )}
+                  </div>
+                  <span className="hidden sm:inline-block text-slate-300">|</span>
+                  <div>
+                    Filtrados: <strong className="text-slate-800">{
+                      products.filter(p => {
+                        if (inventoryFilterStatus !== 'Todos') {
+                          if (inventoryFilterStatus === 'MasVendidos') {
+                            if (!(p.sales !== undefined && p.sales > 0)) return false;
+                          } else {
+                            if (p.status !== inventoryFilterStatus) return false;
+                          }
                         }
-                      }
-                      if (adminSearchQuery.trim()) {
-                        const q = adminSearchQuery.toLowerCase().trim();
-                        return (p.name || '').toLowerCase().includes(q) || 
-                               (p.code || '').toLowerCase().includes(q) || 
-                               (p.brand || '').toLowerCase().includes(q) || 
-                               (p.category || '').toLowerCase().includes(q);
-                      }
-                      return true;
-                    }).length
-                  }</strong> repuestos
+                        if (adminSearchQuery.trim()) {
+                          const q = adminSearchQuery.toLowerCase().trim();
+                          return (p.name || '').toLowerCase().includes(q) || 
+                                 (p.code || '').toLowerCase().includes(q) || 
+                                 (p.brand || '').toLowerCase().includes(q) || 
+                                 (p.category || '').toLowerCase().includes(q);
+                        }
+                        return true;
+                      }).length
+                    }</strong> repuestos
+                  </div>
                 </div>
               </div>
 

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Product, CATEGORIES, CartItem } from './types';
-import { getProducts, getStoreConfig } from './firebase';
+import { getProducts, getProductsPaged, getStoreConfig } from './firebase';
 import { ProductCard } from './components/ProductCard';
 import { ProductFullDetails } from './components/ProductFullDetails';
 import { ProductDetailsModal } from './components/ProductDetailsModal';
@@ -257,12 +257,18 @@ export default function App() {
     }
   };
 
+  const [lastVisible, setLastVisible] = useState<any>(null);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+
   useEffect(() => {
     const fetchProds = async () => {
       setLoading(true);
       try {
-        const data = await getProducts();
-        setProducts(data);
+        const result = await getProductsPaged(100, null);
+        setProducts(result.products);
+        setLastVisible(result.lastDoc);
+        setHasMore(result.hasMore);
       } catch (err) {
         console.error("Error fetching products:", err);
       } finally {
@@ -275,6 +281,28 @@ export default function App() {
     const history = JSON.parse(localStorage.getItem('velkor_local_orders') || '[]');
     setLocalHistory(history);
   }, []);
+
+  // Progressive background loading to fetch the rest of the database incrementally without freezing
+  useEffect(() => {
+    if (loading || !hasMore || loadingMore) return;
+
+    const timer = setTimeout(async () => {
+      try {
+        const result = await getProductsPaged(100, lastVisible);
+        setProducts(prev => {
+          const existingIds = new Set(prev.map(p => p.id));
+          const uniques = result.products.filter(p => !existingIds.has(p.id));
+          return [...prev, ...uniques];
+        });
+        setLastVisible(result.lastDoc);
+        setHasMore(result.hasMore);
+      } catch (err) {
+        console.error("Error loading remaining products in background:", err);
+      }
+    }, 2000); // Wait 2 seconds between batch loads to avoid network clutter
+
+    return () => clearTimeout(timer);
+  }, [loading, hasMore, lastVisible, loadingMore]);
 
   const refreshLocalHistory = () => {
     const history = JSON.parse(localStorage.getItem('velkor_local_orders') || '[]');
@@ -295,7 +323,11 @@ export default function App() {
     setSelectedProductForOrder(null);
     refreshLocalHistory();
     // Refresh products to reload stock values and sales counters
-    getProducts().then(setProducts);
+    getProductsPaged(100, null).then(result => {
+      setProducts(result.products);
+      setLastVisible(result.lastDoc);
+      setHasMore(result.hasMore);
+    });
   };
 
   // Filters logic - client catalog views
@@ -624,8 +656,8 @@ export default function App() {
                 </div>
 
                 {/* Pagination Load More Controls */}
-                {filteredProducts.length > visibleCount && (
-                  <div className="flex flex-col items-center justify-center pt-4 pb-8 space-y-2">
+                <div className="flex flex-col items-center justify-center pt-4 pb-8 space-y-3">
+                  {filteredProducts.length > visibleCount && (
                     <button
                       id="btn-load-more"
                       onClick={() => setVisibleCount(prev => prev + 24)}
@@ -634,11 +666,21 @@ export default function App() {
                       <Plus className="w-4 h-4 text-emerald-500 animate-pulse" />
                       Cargar más repuestos en catálogo
                     </button>
+                  )}
+                  <div className="text-center space-y-1">
                     <p className="text-[10px] text-slate-400 font-mono">
-                      Mostrando {Math.min(visibleCount, filteredProducts.length)} de {filteredProducts.length} repuestos
+                      Mostrando {Math.min(visibleCount, filteredProducts.length)} de {filteredProducts.length} repuestos filtrados
+                    </p>
+                    <p className="text-[9px] text-slate-400/80 font-mono flex items-center justify-center gap-1">
+                      <span>Catálogo Velkor: <strong>{products.length}</strong> cargados</span>
+                      {hasMore ? (
+                        <span className="text-emerald-500 animate-pulse font-bold ml-1">(Cargando más en segundo plano...)</span>
+                      ) : (
+                        <span className="text-slate-400 ml-1">(Completo)</span>
+                      )}
                     </p>
                   </div>
-                )}
+                </div>
               </div>
             )}
           </div>
