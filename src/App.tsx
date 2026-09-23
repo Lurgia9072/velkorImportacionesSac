@@ -952,7 +952,7 @@ export default function App() {
                 Tu importador directo de repuestos de calidad premium desde China. Abastecemos al mercado mayorista de motocicletas en todo el Perú con los mejores precios y stock garantizado.
               </p>
               <p className="text-[10px] text-neutral-600">
-                RUC: 20609827412 — Lima, Perú
+                RUC: 20616309146 — Lima, Perú
               </p>
             </div>
 
@@ -962,7 +962,7 @@ export default function App() {
               <div className="flex justify-center gap-3">
                 {/* Facebook */}
                 <a 
-                  href="https://facebook.com" 
+                  href="https://www.facebook.com/profile.php?id=61589615894209" 
                   target="_blank" 
                   rel="noopener noreferrer"
                   className="flex items-center justify-center w-10 h-10 rounded-full bg-neutral-900 hover:bg-blue-600 hover:text-white border border-neutral-800 hover:border-blue-500 text-neutral-400 transition-all duration-300 transform hover:-translate-y-1 shadow-lg"
@@ -975,7 +975,7 @@ export default function App() {
 
                 {/* TikTok */}
                 <a 
-                  href="https://tiktok.com" 
+                  href="https://www.tiktok.com/@velkorimportaciones" 
                   target="_blank" 
                   rel="noopener noreferrer"
                   className="flex items-center justify-center w-10 h-10 rounded-full bg-neutral-900 hover:bg-neutral-800 hover:text-white border border-neutral-800 hover:border-neutral-700 text-neutral-400 transition-all duration-300 transform hover:-translate-y-1 shadow-lg relative overflow-hidden group"
@@ -991,7 +991,7 @@ export default function App() {
 
                 {/* WhatsApp */}
                 <a 
-                  href="https://wa.me/51999999999" 
+                  href="https://w.app/velkor" 
                   target="_blank" 
                   rel="noopener noreferrer"
                   className="flex items-center justify-center w-10 h-10 rounded-full bg-neutral-900 hover:bg-emerald-500 hover:text-white border border-neutral-800 hover:border-emerald-400 text-neutral-400 transition-all duration-300 transform hover:-translate-y-1 shadow-lg"
