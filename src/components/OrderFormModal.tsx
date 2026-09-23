@@ -16,7 +16,7 @@ export const OrderFormModal: React.FC<OrderFormModalProps> = ({ cartItems, onClo
   const [region, setRegion] = useState('Lima'); // Peruvian region tracking
   const [requestType, setRequestType] = useState<Order['requestType']>('Compra directa');
   const [paymentMethod, setPaymentMethod] = useState<Order['paymentMethod']>('20% adelanto / 80% entrega');
-  const [whatsappNumber, setWhatsappNumber] = useState('+51970329450'); // Default Peruvian number placeholder, editable for testing
+  const COMPANY_WHATSAPP = '+51970329450'; // Official Velkor company WhatsApp number (Protected)
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -95,7 +95,7 @@ ${itemsText}Tipo de Solicitud: ${requestType}
 Método de Pago Preferido: ${paymentMethod}`;
 
       // 3. Format WhatsApp phone and open link
-      const cleanPhone = whatsappNumber.replace(/\D/g, '');
+      const cleanPhone = COMPANY_WHATSAPP.replace(/\D/g, '');
       const waPhone = cleanPhone.length === 9 ? `51${cleanPhone}` : cleanPhone;
       const whatsappUrl = `https://api.whatsapp.com/send?phone=${waPhone}&text=${encodeURIComponent(formattedMessage)}`;
       
@@ -338,21 +338,18 @@ Método de Pago Preferido: ${paymentMethod}`;
                 </div>
               </div>
  
-              {/* Editable WhatsApp business target number */}
+              {/* WhatsApp business target number (Protected / Disabled) */}
               <div className="pt-4 border-t border-dashed border-slate-200">
-                <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1 font-bold">
-                  Enviar pedido al WhatsApp del Negocio (Número de Pruebas):
-                </label>
                 <input 
                   id="input-whatsapp-target"
                   type="text"
-                  placeholder="Ej: +51970329450"
-                  value={whatsappNumber}
-                  onChange={e => setWhatsappNumber(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 rounded-lg px-3 py-1.5 text-xs font-mono focus:outline-hidden transition-colors text-slate-700"
+                  disabled
+                  readOnly
+                  value={COMPANY_WHATSAPP}
+                  className="w-full bg-slate-100 border border-slate-200 rounded-lg px-3 py-1.5 text-xs font-mono text-slate-700 cursor-not-allowed select-none font-bold focus:outline-hidden"
                 />
                 <span className="text-[10px] text-slate-400 mt-1 block leading-normal">
-                  * Cambia este número para probar el envío directo a tu propio WhatsApp celular.
+                  * Este número de WhatsApp (+51970329450) es corporativo y no se puede modificar.
                 </span>
               </div>
             </div>
