@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Product, CATEGORIES, CartItem } from './types';
-import { getProducts, getProductsPaged, getStoreConfig } from './firebase';
+import { getProducts, getStoreConfig } from './firebase';
 import { ProductCard } from './components/ProductCard';
 import { ProductFullDetails } from './components/ProductFullDetails';
 import { ProductDetailsModal } from './components/ProductDetailsModal';
@@ -14,10 +14,13 @@ import {
   BookOpen, 
   Sliders, 
   HelpCircle, 
-  CheckCircle,
+  CheckCircle, 
   Phone, 
   Send, 
+  ChevronLeft,
   ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
   Sparkles,
   Flame,
   Calendar,
@@ -98,13 +101,7 @@ export default function App() {
   const [desktopCols, setDesktopCols] = useState<4 | 5 | 6>(5);
   const [activeBannerIdx, setActiveBannerIdx] = useState(0);
 
-  // Pagination / Lazy Loading
-  const [visibleCount, setVisibleCount] = useState(24);
 
-  // Reset pagination when search query, selected category, or status changes
-  useEffect(() => {
-    setVisibleCount(24);
-  }, [searchQuery, selectedCategory, selectedStatus]);
 
   const getGridColsClass = () => {
     switch (desktopCols) {
@@ -257,18 +254,16 @@ export default function App() {
     }
   };
 
-  const [lastVisible, setLastVisible] = useState<any>(null);
-  const [hasMore, setHasMore] = useState(false);
-  const [loadingMore, setLoadingMore] = useState(false);
+  // Customer Catalog Pagination State
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(15); // 15 products per page requested by user
 
   useEffect(() => {
     const fetchProds = async () => {
       setLoading(true);
       try {
-        const result = await getProductsPaged(100, null);
-        setProducts(result.products);
-        setLastVisible(result.lastDoc);
-        setHasMore(result.hasMore);
+        const data = await getProducts();
+        setProducts(data);
       } catch (err) {
         console.error("Error fetching products:", err);
       } finally {
@@ -281,28 +276,6 @@ export default function App() {
     const history = JSON.parse(localStorage.getItem('velkor_local_orders') || '[]');
     setLocalHistory(history);
   }, []);
-
-  // Progressive background loading to fetch the rest of the database incrementally without freezing
-  useEffect(() => {
-    if (loading || !hasMore || loadingMore) return;
-
-    const timer = setTimeout(async () => {
-      try {
-        const result = await getProductsPaged(100, lastVisible);
-        setProducts(prev => {
-          const existingIds = new Set(prev.map(p => p.id));
-          const uniques = result.products.filter(p => !existingIds.has(p.id));
-          return [...prev, ...uniques];
-        });
-        setLastVisible(result.lastDoc);
-        setHasMore(result.hasMore);
-      } catch (err) {
-        console.error("Error loading remaining products in background:", err);
-      }
-    }, 2000); // Wait 2 seconds between batch loads to avoid network clutter
-
-    return () => clearTimeout(timer);
-  }, [loading, hasMore, lastVisible, loadingMore]);
 
   const refreshLocalHistory = () => {
     const history = JSON.parse(localStorage.getItem('velkor_local_orders') || '[]');
@@ -323,28 +296,53 @@ export default function App() {
     setSelectedProductForOrder(null);
     refreshLocalHistory();
     // Refresh products to reload stock values and sales counters
-    getProductsPaged(100, null).then(result => {
-      setProducts(result.products);
-      setLastVisible(result.lastDoc);
-      setHasMore(result.hasMore);
-    });
+    getProducts(true).then(setProducts);
   };
 
-  // Filters logic - client catalog views
-  const filteredProducts = products.filter(p => {
-    // Hide 'Agotado' marked products completely from public customer catalog
-    if (p.status === 'Agotado') {
-      return false;
-    }
+  // Reset to page 1 whenever any filter or page size changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, selectedCategory, selectedStatus, pageSize]);
 
-    const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          p.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          p.category.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory = selectedCategory === 'Todos' || p.category === selectedCategory;
-    const matchesStatus = selectedStatus === 'Todos' || p.status === selectedStatus;
-    
-    return matchesSearch && matchesCategory && matchesStatus;
-  });
+  // Filters logic - client catalog views (memoized for instantaneous responsiveness)
+  const filteredProducts = useMemo(() => {
+    return products.filter(p => {
+      // Hide 'Agotado' marked products completely from public customer catalog
+      if (p.status === 'Agotado') {
+        return false;
+      }
+
+      const q = searchQuery.toLowerCase().trim();
+      const matchesSearch = !q || 
+                            (p.name || '').toLowerCase().includes(q) || 
+                            (p.description || '').toLowerCase().includes(q) ||
+                            (p.category || '').toLowerCase().includes(q) ||
+                            (p.code || '').toLowerCase().includes(q) ||
+                            (p.brand || '').toLowerCase().includes(q);
+      const matchesCategory = selectedCategory === 'Todos' || p.category === selectedCategory;
+      const matchesStatus = selectedStatus === 'Todos' || p.status === selectedStatus;
+      
+      return matchesSearch && matchesCategory && matchesStatus;
+    });
+  }, [products, searchQuery, selectedCategory, selectedStatus]);
+
+  // Pagination calculations
+  const totalPages = Math.max(1, Math.ceil(filteredProducts.length / pageSize));
+  const safeCurrentPage = Math.min(Math.max(1, currentPage), totalPages);
+  const startIndex = (safeCurrentPage - 1) * pageSize;
+  const endIndex = Math.min(startIndex + pageSize, filteredProducts.length);
+  const pagedProducts = useMemo(() => {
+    return filteredProducts.slice(startIndex, endIndex);
+  }, [filteredProducts, startIndex, endIndex]);
+
+  const handlePageChange = (newPage: number) => {
+    const targetPage = Math.max(1, Math.min(newPage, totalPages));
+    setCurrentPage(targetPage);
+    const container = document.getElementById('catalog-products-container');
+    if (container) {
+      container.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
 
   if (activeView === 'admin') {
     return (
@@ -432,11 +430,11 @@ export default function App() {
       {activeView === 'catalog' && !selectedProductDetails && (
         <div 
           id="hero-banner"
-          className="relative w-full overflow-hidden h-[2500px] md:h-[280px] border-b border-slate-200 bg-slate-900 text-white select-none transition-all duration-700 ease-in-out"
+          className="relative w-full overflow-hidden h-[180px] md:h-[220px] border-b border-slate-200 bg-slate-900 text-white select-none transition-all duration-700 ease-in-out"
           style={{ backgroundImage: `url(${banners[activeBannerIdx].image})`, backgroundSize: 'cover', backgroundPosition: 'center' }}
         >
           {/* Overlay to darken background for high contrast text readability */}
-          <div className="absolute inset-0 bg-black/20" />
+          <div className="absolute inset-0 bg-black/75 backdrop-blur-[0.5px]" />
           
           <div className="relative z-10 max-w-7xl w-full h-full mx-auto px-4 sm:px-6 flex flex-col justify-center space-y-1.5 md:space-y-2">
             <div>
@@ -596,36 +594,76 @@ export default function App() {
               </div>
             </div>
 
-            {/* Products grid density bar & summary */}
-            <div className="flex justify-between items-center text-xs text-slate-500 font-mono pt-1">
-              <div>
-                Encontrados: <strong className="text-slate-800 font-bold">{filteredProducts.length}</strong> repuestos
-              </div>
-              
-              {/* Columns switcher (visible only on desktop >= 1024px) */}
-              <div className="hidden lg:flex items-center gap-2 bg-slate-100 p-0.5 rounded-lg border border-slate-200/50">
-                <span className="text-[9px] text-slate-400 font-bold uppercase px-1">Columnas:</span>
-                {[4, 5, 6].map(cols => (
-                  <button
-                    key={cols}
-                    onClick={() => setDesktopCols(cols as 4 | 5 | 6)}
-                    className={`w-6 h-6 rounded flex items-center justify-center font-bold text-[11px] transition-all ${
-                      desktopCols === cols 
-                        ? 'bg-white text-emerald-600 shadow-xs border border-slate-200/60' 
-                        : 'text-slate-500 hover:text-slate-800'
-                    }`}
-                  >
-                    {cols}
-                  </button>
-                ))}
+            {/* Products grid density bar, page size selector & pagination summary */}
+            <div id="catalog-products-container" className="scroll-mt-24">
+              <div className="flex flex-wrap justify-between items-center gap-2 text-xs text-slate-500 font-mono pt-1 pb-1">
+                <div className="flex items-center gap-2">
+                  <span>Encontrados: <strong className="text-slate-800 font-bold">{filteredProducts.length}</strong> repuestos</span>
+                  {filteredProducts.length > 0 && (
+                    <span className="text-[11px] text-emerald-700 font-semibold bg-emerald-50 border border-emerald-200/60 px-2 py-0.5 rounded-md ml-1">
+                      Pág. {safeCurrentPage} de {totalPages}
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-3 ml-auto">
+                  {/* Page Size Selector */}
+                  <div className="flex items-center gap-1.5 bg-white px-2 py-1 rounded-lg border border-slate-200 shadow-3xs">
+                    <span className="text-[10px] text-slate-400 font-semibold">Por pág:</span>
+                    {[10, 15, 20].map(size => (
+                      <button
+                        key={size}
+                        onClick={() => setPageSize(size)}
+                        className={`text-[11px] font-bold px-1.5 py-0.5 rounded transition-all cursor-pointer ${
+                          pageSize === size
+                            ? 'bg-emerald-600 text-white shadow-3xs'
+                            : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                        }`}
+                      >
+                        {size}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Columns switcher (visible only on desktop >= 1024px) */}
+                  <div className="hidden lg:flex items-center gap-1 bg-slate-100 p-0.5 rounded-lg border border-slate-200/50">
+                    <span className="text-[9px] text-slate-400 font-bold uppercase px-1">Columnas:</span>
+                    {[4, 5, 6].map(cols => (
+                      <button
+                        key={cols}
+                        onClick={() => setDesktopCols(cols as 4 | 5 | 6)}
+                        className={`w-6 h-6 rounded flex items-center justify-center font-bold text-[11px] transition-all cursor-pointer ${
+                          desktopCols === cols 
+                            ? 'bg-white text-emerald-600 shadow-xs border border-slate-200/60' 
+                            : 'text-slate-500 hover:text-slate-800'
+                        }`}
+                      >
+                        {cols}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
             </div>
 
             {/* Products Grid View */}
             {loading ? (
-              <div className="py-20 text-center flex flex-col items-center justify-center">
-                <div className="w-12 h-12 border-4 border-slate-200 border-t-emerald-500 rounded-full animate-spin mb-4" />
-                <p className="text-slate-500 text-sm font-mono">Cargando catálogo inteligente de repuestos...</p>
+              <div className="space-y-4 py-4">
+                <div className="py-6 text-center flex flex-col items-center justify-center">
+                  <div className="w-10 h-10 border-3 border-slate-200 border-t-emerald-500 rounded-full animate-spin mb-3" />
+                  <p className="text-slate-500 text-xs font-mono font-medium">Cargando catálogo Velkor...</p>
+                </div>
+                <div className={getGridColsClass()}>
+                  {Array.from({ length: pageSize }).map((_, i) => (
+                    <div key={i} className="bg-white rounded-xl border border-slate-200 p-3 flex flex-col space-y-2 animate-pulse">
+                      <div className="w-full aspect-4/3 bg-slate-100 rounded-lg" />
+                      <div className="h-3 bg-slate-100 rounded w-1/3" />
+                      <div className="h-4 bg-slate-100 rounded w-4/5" />
+                      <div className="h-3 bg-slate-100 rounded w-1/2" />
+                      <div className="h-8 bg-slate-100 rounded mt-auto" />
+                    </div>
+                  ))}
+                </div>
               </div>
             ) : filteredProducts.length === 0 ? (
               <div className="py-16 text-center bg-white border border-slate-200 rounded-2xl max-w-xl mx-auto">
@@ -637,15 +675,16 @@ export default function App() {
                 <button 
                   id="reset-catalog-filters"
                   onClick={() => { setSelectedCategory('Todos'); setSelectedStatus('Todos'); setSearchQuery(''); }}
-                  className="mt-4 bg-slate-100 hover:bg-emerald-500 hover:text-slate-950 text-slate-700 text-xs font-bold px-4 py-2 rounded-lg transition-all font-mono border border-slate-200"
+                  className="mt-4 bg-slate-100 hover:bg-emerald-500 hover:text-slate-950 text-slate-700 text-xs font-bold px-4 py-2 rounded-lg transition-all font-mono border border-slate-200 cursor-pointer"
                 >
                   Restablecer Catálogo
                 </button>
               </div>
             ) : (
               <div className="space-y-6">
+                {/* 10-15 Products Rendered for Current Page Only */}
                 <div className={getGridColsClass()}>
-                  {filteredProducts.slice(0, visibleCount).map(p => (
+                  {pagedProducts.map(p => (
                     <ProductCard 
                       key={p.id} 
                       product={p} 
@@ -655,32 +694,99 @@ export default function App() {
                   ))}
                 </div>
 
-                {/* Pagination Load More Controls */}
-                <div className="flex flex-col items-center justify-center pt-4 pb-8 space-y-3">
-                  {filteredProducts.length > visibleCount && (
-                    <button
-                      id="btn-load-more"
-                      onClick={() => setVisibleCount(prev => prev + 24)}
-                      className="px-6 py-3 bg-white hover:bg-slate-100 text-slate-800 font-mono text-xs font-black rounded-xl border border-slate-200 hover:border-emerald-500/40 transition-all shadow-3xs cursor-pointer flex items-center gap-1.5 active:scale-[0.98]"
-                    >
-                      <Plus className="w-4 h-4 text-emerald-500 animate-pulse" />
-                      Cargar más repuestos en catálogo
-                    </button>
-                  )}
-                  <div className="text-center space-y-1">
-                    <p className="text-[10px] text-slate-400 font-mono">
-                      Mostrando {Math.min(visibleCount, filteredProducts.length)} de {filteredProducts.length} repuestos filtrados
-                    </p>
-                    <p className="text-[9px] text-slate-400/80 font-mono flex items-center justify-center gap-1">
-                      <span>Catálogo Velkor: <strong>{products.length}</strong> cargados</span>
-                      {hasMore ? (
-                        <span className="text-emerald-500 animate-pulse font-bold ml-1">(Cargando más en segundo plano...)</span>
-                      ) : (
-                        <span className="text-slate-400 ml-1">(Completo)</span>
-                      )}
-                    </p>
+                {/* Modern Interactive Pagination Navigation */}
+                {totalPages > 1 && (
+                  <div className="flex flex-col items-center justify-center pt-4 pb-10 space-y-3">
+                    <nav className="flex items-center gap-1 sm:gap-1.5 bg-white p-1.5 sm:p-2 rounded-2xl border border-slate-200 shadow-sm">
+                      {/* First Page */}
+                      <button
+                        onClick={() => handlePageChange(1)}
+                        disabled={safeCurrentPage === 1}
+                        title="Primera página"
+                        className="p-2 rounded-xl text-slate-500 hover:text-slate-900 hover:bg-slate-100 disabled:opacity-30 disabled:pointer-events-none transition-colors cursor-pointer"
+                      >
+                        <ChevronsLeft className="w-4 h-4" />
+                      </button>
+
+                      {/* Prev Page */}
+                      <button
+                        onClick={() => handlePageChange(safeCurrentPage - 1)}
+                        disabled={safeCurrentPage === 1}
+                        className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold text-slate-600 hover:text-slate-900 hover:bg-slate-100 disabled:opacity-30 disabled:pointer-events-none transition-colors cursor-pointer"
+                      >
+                        <ChevronLeft className="w-4 h-4" />
+                        <span className="hidden sm:inline">Anterior</span>
+                      </button>
+
+                      {/* Page Numbers */}
+                      <div className="flex items-center gap-1 px-1">
+                        {Array.from({ length: totalPages }, (_, i) => i + 1)
+                          .filter(page => {
+                            if (totalPages <= 7) return true;
+                            if (page === 1 || page === totalPages) return true;
+                            return Math.abs(page - safeCurrentPage) <= 1;
+                          })
+                          .reduce<(number | string)[]>((acc, page, idx, arr) => {
+                            if (idx > 0 && typeof page === 'number' && typeof arr[idx - 1] === 'number') {
+                              if ((page as number) - (arr[idx - 1] as number) > 1) {
+                                acc.push('...');
+                              }
+                            }
+                            acc.push(page);
+                            return acc;
+                          }, [])
+                          .map((item, idx) => {
+                            if (item === '...') {
+                              return (
+                                <span key={`ellipsis-${idx}`} className="px-2 text-slate-400 font-mono text-xs">
+                                  ...
+                                </span>
+                              );
+                            }
+                            const pageNum = item as number;
+                            const isActive = pageNum === safeCurrentPage;
+                            return (
+                              <button
+                                key={pageNum}
+                                onClick={() => handlePageChange(pageNum)}
+                                className={`w-8 h-8 rounded-xl font-mono text-xs font-black transition-all cursor-pointer ${
+                                  isActive
+                                    ? 'bg-emerald-600 text-white shadow-xs scale-105'
+                                    : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                                }`}
+                              >
+                                {pageNum}
+                              </button>
+                            );
+                          })}
+                      </div>
+
+                      {/* Next Page */}
+                      <button
+                        onClick={() => handlePageChange(safeCurrentPage + 1)}
+                        disabled={safeCurrentPage === totalPages}
+                        className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold text-slate-600 hover:text-slate-900 hover:bg-slate-100 disabled:opacity-30 disabled:pointer-events-none transition-colors cursor-pointer"
+                      >
+                        <span className="hidden sm:inline">Siguiente</span>
+                        <ChevronRight className="w-4 h-4" />
+                      </button>
+
+                      {/* Last Page */}
+                      <button
+                        onClick={() => handlePageChange(totalPages)}
+                        disabled={safeCurrentPage === totalPages}
+                        title="Última página"
+                        className="p-2 rounded-xl text-slate-500 hover:text-slate-900 hover:bg-slate-100 disabled:opacity-30 disabled:pointer-events-none transition-colors cursor-pointer"
+                      >
+                        <ChevronsRight className="w-4 h-4" />
+                      </button>
+                    </nav>
+
+                    <div className="text-center font-mono text-[11px] text-slate-400">
+                      Mostrando repuestos <strong className="text-slate-700">{filteredProducts.length === 0 ? 0 : startIndex + 1}</strong> al <strong className="text-slate-700">{endIndex}</strong> de <strong className="text-slate-800">{filteredProducts.length}</strong> ({pageSize} por página)
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
             )}
           </div>

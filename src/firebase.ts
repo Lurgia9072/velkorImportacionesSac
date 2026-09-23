@@ -1,6 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import { 
-  getFirestore, 
+  initializeFirestore, 
   collection, 
   getDocs, 
   addDoc, 
@@ -32,18 +32,44 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
-export const db = getFirestore(app);
 
-export async function getProducts(): Promise<Product[]> {
+// Use auto-detect long polling to prevent WebChannel stream 404/Listen transport errors and memory leaks in browser extensions
+export const db = initializeFirestore(app, {
+  experimentalAutoDetectLongPolling: true
+});
+
+// Cache for products to enable fast client/admin pagination without redundant network roundtrips
+let cachedProducts: Product[] | null = null;
+let lastFetchTime = 0;
+const CACHE_TTL_MS = 30000; // 30 seconds cache
+
+export function clearProductsCache() {
+  cachedProducts = null;
+  lastFetchTime = 0;
+}
+
+export async function getProducts(forceRefresh = false): Promise<Product[]> {
+  const now = Date.now();
+  if (!forceRefresh && cachedProducts && (now - lastFetchTime < CACHE_TTL_MS)) {
+    return cachedProducts;
+  }
+
   try {
     const querySnapshot = await getDocs(collection(db, 'products'));
     const products: Product[] = [];
     querySnapshot.forEach((docSnap) => {
       products.push({ id: docSnap.id, ...docSnap.data() } as Product);
     });
+    
+    // Sort products by name by default
+    products.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+
+    cachedProducts = products;
+    lastFetchTime = now;
     return products;
   } catch (error) {
     console.error("Error getting products from Firestore:", error);
+    if (cachedProducts) return cachedProducts;
     return [];
   }
 }
@@ -104,17 +130,20 @@ export async function createProduct(product: Omit<Product, 'id'>): Promise<strin
     views: product.views || 0,
     sales: product.sales || 0
   });
+  clearProductsCache();
   return docRef.id;
 }
 
 export async function updateProduct(id: string, updatedFields: Partial<Product>): Promise<void> {
   const productDocRef = doc(db, 'products', id);
   await updateDoc(productDocRef, updatedFields);
+  clearProductsCache();
 }
 
 export async function deleteProduct(id: string): Promise<void> {
   const productDocRef = doc(db, 'products', id);
   await deleteDoc(productDocRef);
+  clearProductsCache();
 }
 
 export async function incrementProductView(productId: string): Promise<void> {

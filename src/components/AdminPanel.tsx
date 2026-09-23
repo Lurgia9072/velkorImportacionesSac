@@ -1,8 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Product, Order, CATEGORIES } from '../types';
 import { 
   getProducts, 
-  getProductsPaged,
   createProduct, 
   updateProduct, 
   deleteProduct, 
@@ -43,7 +42,11 @@ import {
   Upload,
   Image,
   X,
-  Search
+  Search,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight
 } from 'lucide-react';
 
 export const AdminPanel: React.FC = () => {
@@ -59,9 +62,9 @@ export const AdminPanel: React.FC = () => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const [adminLastVisible, setAdminLastVisible] = useState<any>(null);
-  const [adminHasMore, setAdminHasMore] = useState(false);
-  const [adminLoadingMore, setAdminLoadingMore] = useState(false);
+  // Admin Inventory Pagination States
+  const [adminCurrentPage, setAdminCurrentPage] = useState<number>(1);
+  const [adminPageSize, setAdminPageSize] = useState<number>(15);
 
   // CRUD Product Form States
   const [isEditingProduct, setIsEditingProduct] = useState(false);
@@ -225,6 +228,45 @@ export const AdminPanel: React.FC = () => {
   // Filtering inventory lists
   const [inventoryFilterStatus, setInventoryFilterStatus] = useState<string>('Todos');
 
+  // Reset admin inventory pagination on filter/query changes
+  useEffect(() => {
+    setAdminCurrentPage(1);
+  }, [inventoryFilterStatus, adminSearchQuery, adminPageSize]);
+
+  // Memoized filtered products for Admin inventory to avoid repeating filter loops
+  const filteredAdminProducts = useMemo(() => {
+    return products.filter(p => {
+      if (inventoryFilterStatus !== 'Todos') {
+        if (inventoryFilterStatus === 'MasVendidos') {
+          if (!(p.sales !== undefined && p.sales > 0)) return false;
+        } else {
+          if (p.status !== inventoryFilterStatus) return false;
+        }
+      }
+      if (adminSearchQuery.trim()) {
+        const q = adminSearchQuery.toLowerCase().trim();
+        return (p.name || '').toLowerCase().includes(q) || 
+               (p.code || '').toLowerCase().includes(q) || 
+               (p.brand || '').toLowerCase().includes(q) || 
+               (p.category || '').toLowerCase().includes(q);
+      }
+      return true;
+    });
+  }, [products, inventoryFilterStatus, adminSearchQuery]);
+
+  const adminTotalPages = Math.max(1, Math.ceil(filteredAdminProducts.length / adminPageSize));
+  const safeAdminCurrentPage = Math.min(Math.max(1, adminCurrentPage), adminTotalPages);
+  const adminStartIndex = (safeAdminCurrentPage - 1) * adminPageSize;
+  const adminEndIndex = Math.min(adminStartIndex + adminPageSize, filteredAdminProducts.length);
+  const pagedAdminProducts = useMemo(() => {
+    return filteredAdminProducts.slice(adminStartIndex, adminEndIndex);
+  }, [filteredAdminProducts, adminStartIndex, adminEndIndex]);
+
+  const handleAdminPageChange = (newPage: number) => {
+    const targetPage = Math.max(1, Math.min(newPage, adminTotalPages));
+    setAdminCurrentPage(targetPage);
+  };
+
   // Filtering orders by region
   const [orderFilterRegion, setOrderFilterRegion] = useState<string>('Todos');
   const [orderFilterStatus, setOrderFilterStatus] = useState<string>('Todos');
@@ -236,14 +278,12 @@ export const AdminPanel: React.FC = () => {
   const ADMIN_PASSWORD = 'velkor2026';
   const ADMIN_EMAIL = 'velkoryauramiza@gmail.com';
 
-  const loadData = async () => {
+  const loadData = async (forceRefresh = false) => {
     setLoading(true);
     try {
-      const result = await getProductsPaged(100, null);
+      const prods = await getProducts(forceRefresh);
       const ords = await getOrders();
-      setProducts(result.products);
-      setAdminLastVisible(result.lastDoc);
-      setAdminHasMore(result.hasMore);
+      setProducts(prods);
       setOrders(ords);
 
       const config = await getStoreConfig();
@@ -257,28 +297,6 @@ export const AdminPanel: React.FC = () => {
       setLoading(false);
     }
   };
-
-  // Progressive background loading for Admin inventory to fetch the rest of the database incrementally
-  useEffect(() => {
-    if (!isAuthenticated || loading || !adminHasMore || adminLoadingMore) return;
-
-    const timer = setTimeout(async () => {
-      try {
-        const result = await getProductsPaged(100, adminLastVisible);
-        setProducts(prev => {
-          const existingIds = new Set(prev.map(p => p.id));
-          const uniques = result.products.filter(p => !existingIds.has(p.id));
-          return [...prev, ...uniques];
-        });
-        setAdminLastVisible(result.lastDoc);
-        setAdminHasMore(result.hasMore);
-      } catch (err) {
-        console.error("Error loading remaining admin products in background:", err);
-      }
-    }, 2000); // 2 seconds between batch loads to avoid network clutter
-
-    return () => clearTimeout(timer);
-  }, [isAuthenticated, loading, adminHasMore, adminLastVisible, adminLoadingMore]);
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -1905,62 +1923,30 @@ export const AdminPanel: React.FC = () => {
                 </div>
                 <div className="text-[11px] text-slate-400 font-mono sm:ml-auto flex flex-col sm:flex-row items-end sm:items-center gap-1 sm:gap-3">
                   <div className="flex items-center gap-1.5">
-                    <span>Cargados:</span>
+                    <span>Total en BD:</span>
                     <strong className="text-slate-800">{products.length}</strong>
-                    {adminHasMore ? (
-                      <span className="inline-flex items-center gap-1 text-emerald-600 font-bold bg-emerald-50 px-1.5 py-0.5 rounded-sm animate-pulse text-[10px]">
-                        Cargando...
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded-sm text-[10px]">
-                        Listo
-                      </span>
-                    )}
+                    <span className="inline-flex items-center gap-1 text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-sm text-[10px] font-bold">
+                      Listo
+                    </span>
                   </div>
                   <span className="hidden sm:inline-block text-slate-300">|</span>
                   <div>
-                    Filtrados: <strong className="text-slate-800">{
-                      products.filter(p => {
-                        if (inventoryFilterStatus !== 'Todos') {
-                          if (inventoryFilterStatus === 'MasVendidos') {
-                            if (!(p.sales !== undefined && p.sales > 0)) return false;
-                          } else {
-                            if (p.status !== inventoryFilterStatus) return false;
-                          }
-                        }
-                        if (adminSearchQuery.trim()) {
-                          const q = adminSearchQuery.toLowerCase().trim();
-                          return (p.name || '').toLowerCase().includes(q) || 
-                                 (p.code || '').toLowerCase().includes(q) || 
-                                 (p.brand || '').toLowerCase().includes(q) || 
-                                 (p.category || '').toLowerCase().includes(q);
-                        }
-                        return true;
-                      }).length
-                    }</strong> repuestos
+                    Filtrados: <strong className="text-slate-800">{filteredAdminProducts.length}</strong> repuestos
                   </div>
+                  {filteredAdminProducts.length > 0 && (
+                    <>
+                      <span className="hidden sm:inline-block text-slate-300">|</span>
+                      <div className="text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200/50">
+                        Pág. {safeAdminCurrentPage} de {adminTotalPages}
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
 
               {/* Product Inventory Table / Grid */}
               <div className="bg-white border-t border-slate-200 overflow-hidden shadow-xs">
-                {products.filter(p => {
-                  if (inventoryFilterStatus !== 'Todos') {
-                    if (inventoryFilterStatus === 'MasVendidos') {
-                      if (!(p.sales !== undefined && p.sales > 0)) return false;
-                    } else {
-                      if (p.status !== inventoryFilterStatus) return false;
-                    }
-                  }
-                  if (adminSearchQuery.trim()) {
-                    const q = adminSearchQuery.toLowerCase().trim();
-                    return (p.name || '').toLowerCase().includes(q) || 
-                           (p.code || '').toLowerCase().includes(q) || 
-                           (p.brand || '').toLowerCase().includes(q) || 
-                           (p.category || '').toLowerCase().includes(q);
-                  }
-                  return true;
-                }).length === 0 ? (
+                {filteredAdminProducts.length === 0 ? (
                   <div className="p-12 text-center text-slate-400">
                     No se encontraron repuestos con el filtro o término de búsqueda ingresado.
                   </div>
@@ -1979,25 +1965,7 @@ export const AdminPanel: React.FC = () => {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
-                        {products
-                          .filter(p => {
-                            if (inventoryFilterStatus !== 'Todos') {
-                              if (inventoryFilterStatus === 'MasVendidos') {
-                                if (!(p.sales !== undefined && p.sales > 0)) return false;
-                              } else {
-                                if (p.status !== inventoryFilterStatus) return false;
-                              }
-                            }
-                            if (adminSearchQuery.trim()) {
-                              const q = adminSearchQuery.toLowerCase().trim();
-                              return (p.name || '').toLowerCase().includes(q) || 
-                                     (p.code || '').toLowerCase().includes(q) || 
-                                     (p.brand || '').toLowerCase().includes(q) || 
-                                     (p.category || '').toLowerCase().includes(q);
-                            }
-                            return true;
-                          })
-                          .map(p => (
+                        {pagedAdminProducts.map(p => (
                             <tr key={p.id} className="hover:bg-slate-50/50 transition-colors">
                               <td className="p-4">
                                 <img 
@@ -2094,6 +2062,106 @@ export const AdminPanel: React.FC = () => {
                         ))}
                       </tbody>
                     </table>
+                  </div>
+                )}
+
+                {/* Admin Inventory Table Pagination */}
+                {adminTotalPages > 1 && (
+                  <div className="p-4 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs font-mono">
+                    <div className="flex items-center gap-3">
+                      <span className="text-slate-500">
+                        Mostrando <strong className="text-slate-800">{filteredAdminProducts.length === 0 ? 0 : adminStartIndex + 1}</strong> - <strong className="text-slate-800">{adminEndIndex}</strong> de <strong className="text-slate-800">{filteredAdminProducts.length}</strong>
+                      </span>
+                      <div className="flex items-center gap-1.5 ml-2">
+                        <span className="text-slate-400 text-[11px]">Por pág:</span>
+                        {[15, 30, 50, 100].map(sz => (
+                          <button
+                            key={sz}
+                            onClick={() => setAdminPageSize(sz)}
+                            className={`px-2 py-0.5 rounded text-[11px] font-bold transition-all cursor-pointer ${
+                              adminPageSize === sz 
+                                ? 'bg-slate-900 text-white' 
+                                : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'
+                            }`}
+                          >
+                            {sz}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => handleAdminPageChange(1)}
+                        disabled={safeAdminCurrentPage === 1}
+                        title="Primera página"
+                        className="p-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
+                      >
+                        <ChevronsLeft className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleAdminPageChange(safeAdminCurrentPage - 1)}
+                        disabled={safeAdminCurrentPage === 1}
+                        className="px-2 py-1 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 disabled:opacity-30 disabled:pointer-events-none flex items-center gap-1 font-bold cursor-pointer"
+                      >
+                        <ChevronLeft className="w-3.5 h-3.5" />
+                        <span>Anterior</span>
+                      </button>
+
+                      <div className="flex items-center gap-1 px-1">
+                        {Array.from({ length: adminTotalPages }, (_, i) => i + 1)
+                          .filter(page => {
+                            if (adminTotalPages <= 7) return true;
+                            if (page === 1 || page === adminTotalPages) return true;
+                            return Math.abs(page - safeAdminCurrentPage) <= 1;
+                          })
+                          .reduce<(number | string)[]>((acc, page, idx, arr) => {
+                            if (idx > 0 && typeof page === 'number' && typeof arr[idx - 1] === 'number') {
+                              if ((page as number) - (arr[idx - 1] as number) > 1) {
+                                acc.push('...');
+                              }
+                            }
+                            acc.push(page);
+                            return acc;
+                          }, [])
+                          .map((item, idx) => {
+                            if (item === '...') {
+                              return <span key={`admin-dots-${idx}`} className="px-1 text-slate-400">...</span>;
+                            }
+                            const pNum = item as number;
+                            return (
+                              <button
+                                key={pNum}
+                                onClick={() => handleAdminPageChange(pNum)}
+                                className={`w-7 h-7 rounded-lg font-bold text-xs transition-all cursor-pointer ${
+                                  pNum === safeAdminCurrentPage
+                                    ? 'bg-emerald-600 text-white shadow-xs'
+                                    : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100'
+                                }`}
+                              >
+                                {pNum}
+                              </button>
+                            );
+                          })}
+                      </div>
+
+                      <button
+                        onClick={() => handleAdminPageChange(safeAdminCurrentPage + 1)}
+                        disabled={safeAdminCurrentPage === adminTotalPages}
+                        className="px-2 py-1 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 disabled:opacity-30 disabled:pointer-events-none flex items-center gap-1 font-bold cursor-pointer"
+                      >
+                        <span>Siguiente</span>
+                        <ChevronRight className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onClick={() => handleAdminPageChange(adminTotalPages)}
+                        disabled={safeAdminCurrentPage === adminTotalPages}
+                        title="Última página"
+                        className="p-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
+                      >
+                        <ChevronsRight className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
