@@ -256,7 +256,7 @@ export default function App() {
 
   // Customer Catalog Pagination State
   const [currentPage, setCurrentPage] = useState<number>(1);
-  const [pageSize, setPageSize] = useState<number>(15); // 15 products per page requested by user
+  const [pageSize, setPageSize] = useState<number>(10); // Default to 10 products per page (options: 10, 15, 20)
 
   useEffect(() => {
     const fetchProds = async () => {
@@ -426,11 +426,11 @@ export default function App() {
         </div>
       </header>
 
-      {/* 2. Compact Rotative Banner Hero (Active only on Catalog view when no product is selected) */}
+      {/* 2. Compact Rotative Banner Hero (Hidden on mobile phones, visible on md: screens and above) */}
       {activeView === 'catalog' && !selectedProductDetails && (
         <div 
           id="hero-banner"
-          className="relative w-full overflow-hidden h-[180px] md:h-[220px] border-b border-slate-200 bg-slate-900 text-white select-none transition-all duration-700 ease-in-out"
+          className="hidden md:block relative w-full overflow-hidden md:h-[220px] border-b border-slate-200 bg-slate-900 text-white select-none transition-all duration-700 ease-in-out"
           style={{ backgroundImage: `url(${banners[activeBannerIdx].image})`, backgroundSize: 'cover', backgroundPosition: 'center' }}
         >
           {/* Overlay to darken background for high contrast text readability */}
