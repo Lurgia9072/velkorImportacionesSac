@@ -42,6 +42,28 @@
         "orderGroupId": { "type": "string" }
       },
       "required": ["customerName", "customerPhone", "deliveryAddress", "productId", "productName", "quantity", "requestType", "paymentMethod", "status"]
+    },
+    "quotations": {
+      "title": "Quotation",
+      "description": "Cotizaciones formales para clientes y mayoristas con cálculo de IGV y PDF",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "quoteNumber": { "type": "string" },
+        "customerName": { "type": "string" },
+        "customerDocType": { "type": "string", "enum": ["RUC", "DNI", "CE"] },
+        "customerDocNumber": { "type": "string" },
+        "customerPhone": { "type": "string" },
+        "customerAddress": { "type": "string" },
+        "status": { "type": "string", "enum": ["Borrador / Pendiente", "Enviada (Falta pagar)", "Pagada", "En empaque", "Despachado", "Cancelada"] },
+        "subtotal": { "type": "number" },
+        "igvAmount": { "type": "number" },
+        "total": { "type": "number" },
+        "includeIgv": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["quoteNumber", "customerName", "customerDocNumber", "status", "total"]
     }
   },
   "firestore": {
@@ -52,6 +74,10 @@
     "orders/{orderId}": {
       "schema": "orders",
       "description": "Colección de pedidos y cotizaciones de clientes"
+    },
+    "quotations/{quotationId}": {
+      "schema": "quotations",
+      "description": "Colección de cotizaciones formales para clientes y mayoristas"
     }
   }
 }

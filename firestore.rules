@@ -17,5 +17,10 @@ service cloud.firestore {
     match /settings/{settingsId} {
       allow read, write: if true;
     }
+
+    // Quotations Collection: Cotizaciones formales y seguimiento de pedidos
+    match /quotations/{quotationId} {
+      allow read, write: if true;
+    }
   }
 }

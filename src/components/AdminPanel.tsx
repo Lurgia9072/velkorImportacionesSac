@@ -46,17 +46,26 @@ import {
   ChevronLeft,
   ChevronRight,
   ChevronsLeft,
-  ChevronsRight
+  ChevronsRight,
+  FileText,
+  Calculator,
+  ArrowLeft
 } from 'lucide-react';
+import { QuotationsManager } from './QuotationsManager';
 
-export const AdminPanel: React.FC = () => {
+interface AdminPanelProps {
+  onBackToCatalog?: () => void;
+  initialTab?: string;
+}
+
+export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToCatalog, initialTab }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [email, setEmail] = useState(''); // Specific admin email login check
   const [password, setPassword] = useState('');
   const [loginError, setLoginError] = useState('');
 
-  // Admin tabs: 'orders' | 'inventory' | 'metrics' | 'loyal_clients' | 'lost_clients'
-  const [activeTab, setActiveTab] = useState<string>('orders');
+  // Admin tabs: 'quotations' | 'orders' | 'inventory' | 'metrics' | 'loyal_clients' | 'lost_clients' | 'settings'
+  const [activeTab, setActiveTab] = useState<string>(initialTab || 'quotations');
 
   const [products, setProducts] = useState<Product[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
@@ -971,6 +980,19 @@ export const AdminPanel: React.FC = () => {
           <p className="text-[10px] text-center text-neutral-500 mt-2 font-mono">
             * Carga las credenciales autorizadas del corporativo Velkor.
           </p>
+
+          {onBackToCatalog && (
+            <div className="mt-4 pt-3 border-t border-neutral-850 text-center">
+              <button
+                type="button"
+                onClick={onBackToCatalog}
+                className="text-xs text-neutral-400 hover:text-white transition-colors flex items-center justify-center gap-1.5 mx-auto font-mono"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" />
+                Volver a la Tienda Pública
+              </button>
+            </div>
+          )}
         </div>
       </div>
     );
@@ -996,6 +1018,7 @@ export const AdminPanel: React.FC = () => {
           {/* Navigation Links (As requested: Orders with status filters, products with crud, sales metrics, loyal clients, lost clients) */}
           <nav className="space-y-1">
             {[
+              { id: 'quotations', label: 'Cotizaciones (PDF)', icon: FileText },
               { id: 'orders', label: 'Pedidos Registrados', icon: ShoppingBag, badge: orders.filter(o => o.status === 'En seguimiento').length },
               { id: 'inventory', label: 'Mis Productos (CRUD)', icon: Package, badge: products.length },
               { id: 'metrics', label: 'Métricas & Ventas', icon: BarChart3 },
@@ -1052,6 +1075,15 @@ export const AdminPanel: React.FC = () => {
               <p className="text-slate-500 text-[8px] truncate">velkoryauramiza@gmail.com</p>
             </div>
           </div>
+          {onBackToCatalog && (
+            <button
+              onClick={onBackToCatalog}
+              className="w-full bg-emerald-500 hover:bg-emerald-450 text-slate-950 py-2 rounded-lg text-center text-xs font-mono font-black transition-all flex items-center justify-center gap-1.5 shadow-sm"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              Volver al Catálogo
+            </button>
+          )}
           <button
             onClick={() => setIsAuthenticated(false)}
             className="w-full bg-slate-800/50 hover:bg-rose-600/30 hover:text-rose-400 border border-slate-850 hover:border-rose-900 text-slate-400 py-1.5 rounded-md text-center text-[10px] font-bold transition-all"
@@ -1069,6 +1101,15 @@ export const AdminPanel: React.FC = () => {
             <span className="font-display font-black text-xs tracking-wider uppercase">VELKOR ADMIN</span>
           </div>
           <div className="flex items-center gap-2">
+            {onBackToCatalog && (
+              <button
+                onClick={onBackToCatalog}
+                className="text-[10px] font-mono text-emerald-400 bg-slate-800 border border-slate-700 px-2 py-1 rounded-md font-bold flex items-center gap-1"
+              >
+                <ArrowLeft className="w-3 h-3" />
+                Catálogo
+              </button>
+            )}
             <button
               onClick={loadData}
               className="p-1.5 bg-slate-800 text-slate-300 rounded border border-slate-700"
@@ -1088,6 +1129,7 @@ export const AdminPanel: React.FC = () => {
         {/* Horizontal scroll for mobile tabs */}
         <div className="flex gap-1.5 overflow-x-auto pt-2 pb-1 scrollbar-none">
           {[
+            { id: 'quotations', label: 'Cotizar (PDF)' },
             { id: 'orders', label: 'Pedidos', count: orders.filter(o => o.status === 'En seguimiento').length },
             { id: 'inventory', label: 'Productos', count: products.length },
             { id: 'metrics', label: 'Métricas' },
@@ -1126,6 +1168,13 @@ export const AdminPanel: React.FC = () => {
             </div>
           ) : (
             <>
+              {/* ==================== 0. TAB: QUOTATIONS / COTIZACIONES ==================== */}
+              {activeTab === 'quotations' && (
+                <div id="admin-quotations-tab" className="animate-slideDown">
+                  <QuotationsManager products={products} logoUrl={storeLogo} />
+                </div>
+              )}
+
               {/* ==================== 1. TAB: ORDERS ==================== */}
               {activeTab === 'orders' && (
             <div id="admin-orders-tab" className="bg-white border border-slate-200 rounded-2xl shadow-xs overflow-hidden animate-slideDown">

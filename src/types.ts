@@ -53,23 +53,74 @@ export interface Order {
 
 export const CATEGORIES = [
   'Motor',
-  'Sistema eléctrico',
-  'Sistema de frenos',
+  'Frenos',
   'Transmisión',
-  'Suspensiones y dirección',
-  'Accesorios y equipamiento',
-  'Iluminación',
-  'Lubricantes y mantenimiento',
-  'Admisión y escape',
-  'Llantas y neumáticos',
-  'Carrocería y estetica',
-  'Tornillería y ferretería',
-   'Implementos de seguridad',
-
+  'Llantas & Cámaras',
+  'Sistema Eléctrico',
+  'Suspensiones',
+  'Accesorios'
 ] as const;
 
 export interface StoreConfig {
   logoUrl?: string;
   bannerUrl?: string;
+}
+
+export interface QuotationItem {
+  itemNumber: number;
+  productId?: string;
+  productCode: string;
+  productName: string;
+  brand?: string;
+  quantity: number;
+  unitType?: 'unidades' | 'cajas';
+  unitsPerBox?: number;
+  unitPrice: number;
+  totalPrice: number; // quantity * unitPrice
+}
+
+export type QuotationStatus = 
+  | 'Pendiente'
+  | 'Enviada (Falta pagar)'
+  | 'Pagada'
+  | 'Empacar pedido'
+  | 'Despachado'
+  | 'Cancelada';
+
+export interface Quotation {
+  id?: string;
+  quoteNumber: string; // VK-COT-XXXX
+  date: string; // YYYY-MM-DD or ISO
+  validityDays: number;
+  
+  // Cliente
+  customerName: string;
+  customerDocType: 'RUC' | 'DNI' | 'CE';
+  customerDocNumber: string;
+  customerPhone?: string;
+  customerAddress?: string;
+  customerCity?: string;
+
+  // Items
+  items: QuotationItem[];
+
+  // Finanzas
+  subtotal: number;
+  includeIgv: boolean;
+  igvRate: number; // 0.18
+  igvAmount: number;
+  total: number;
+
+  // Estado de flujo de trabajo ordenado
+  status: QuotationStatus;
+  
+  // Metadatos y notas
+  notes?: string;
+  createdBy?: string;
+  createdAt: string;
+  updatedAt?: string;
+  paidAt?: string;
+  packedAt?: string;
+  dispatchedAt?: string;
 }
 

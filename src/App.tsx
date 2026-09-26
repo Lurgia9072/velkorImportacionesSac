@@ -29,7 +29,9 @@ import {
   ShoppingCart,
   Trash,
   X,
-  Plus
+  Plus,
+  Calculator,
+  FileText
 } from 'lucide-react';
 
 export default function App() {
@@ -1023,7 +1025,17 @@ export default function App() {
           {/* Bottom thin copyright bar */}
           <div className="pt-6 border-t border-neutral-900/60 flex flex-col sm:flex-row items-center justify-between gap-4 text-center text-[10px] text-neutral-600">
             <p>© 2026 VELKOR IMPORTACIONES S.A.C. Todos los derechos reservados.</p>
-            <p className="font-sans">Despacho seguro y eficiente para mayoristas</p>
+            <div className="flex items-center gap-4">
+              <p className="font-sans">Despacho seguro y eficiente para mayoristas</p>
+              <button
+                id="btn-footer-admin-login"
+                onClick={() => handleNavigate('admin')}
+                className="text-neutral-700 hover:text-neutral-400 font-mono transition-colors text-[10px] cursor-pointer"
+                title="Acceso Administrativo Velkor"
+              >
+                • Admin
+              </button>
+            </div>
           </div>
         </div>
       </footer>

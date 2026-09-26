@@ -18,7 +18,7 @@ import {
   startAfter,
   DocumentSnapshot
 } from 'firebase/firestore';
-import { Product, Order, StoreConfig } from './types';
+import { Product, Order, StoreConfig, Quotation } from './types';
 
 // Configuration loaded from firebase-applet-config.json
 const firebaseConfig = {
@@ -215,4 +215,44 @@ export async function updateStoreConfig(config: StoreConfig): Promise<void> {
   const configDocRef = doc(db, 'settings', 'store_config');
   await setDoc(configDocRef, config, { merge: true });
 }
+
+// ==================== COTIZACIONES / QUOTATIONS ====================
+
+export async function getQuotations(): Promise<Quotation[]> {
+  try {
+    const querySnapshot = await getDocs(collection(db, 'quotations'));
+    const quotations: Quotation[] = [];
+    querySnapshot.forEach((docSnap) => {
+      quotations.push({ id: docSnap.id, ...docSnap.data() } as Quotation);
+    });
+    // Sort descending by creation date or quotation date
+    return quotations.sort((a, b) => new Date(b.createdAt || b.date).getTime() - new Date(a.createdAt || a.date).getTime());
+  } catch (error) {
+    console.error("Error getting quotations from Firestore:", error);
+    return [];
+  }
+}
+
+export async function createQuotation(quotation: Omit<Quotation, 'id'>): Promise<string> {
+  const docRef = await addDoc(collection(db, 'quotations'), {
+    ...quotation,
+    createdAt: quotation.createdAt || new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  });
+  return docRef.id;
+}
+
+export async function updateQuotation(id: string, updatedFields: Partial<Quotation>): Promise<void> {
+  const quotationDocRef = doc(db, 'quotations', id);
+  await updateDoc(quotationDocRef, {
+    ...updatedFields,
+    updatedAt: new Date().toISOString()
+  });
+}
+
+export async function deleteQuotation(id: string): Promise<void> {
+  const quotationDocRef = doc(db, 'quotations', id);
+  await deleteDoc(quotationDocRef);
+}
+
 
