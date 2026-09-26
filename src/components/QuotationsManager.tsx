@@ -27,19 +27,52 @@ import {
   DollarSign,
   ArrowRight,
   Printer,
-  X
+  X,
+  ChevronDown,
+  Check
 } from 'lucide-react';
 
 interface QuotationsManagerProps {
   products: Product[];
   logoUrl?: string | null;
+  initialSearchQuery?: string;
+  initialFilterStatus?: string;
+  onClearInitialSearch?: () => void;
 }
 
-export const QuotationsManager: React.FC<QuotationsManagerProps> = ({ products, logoUrl }) => {
+// Normalizer to ensure consistent statuses across existing and new data
+export const normalizeStatus = (status?: string): QuotationStatus => {
+  if (!status) return 'Pendiente';
+  if (status === 'Pagada' || status === 'Pagado') return 'Pagado';
+  if (status === 'Empacar pedido' || status === 'Empacando Pedido') return 'Empacando Pedido';
+  if (status === 'Despachado') return 'Despachado';
+  if (status === 'Entregado') return 'Entregado';
+  if (status === 'Cancelada' || status === 'No Concretada' || status === 'No compró') return 'No Concretada';
+  if (status === 'Enviada (Falta pagar)') return 'Pendiente';
+  return status as QuotationStatus;
+};
+
+export const QuotationsManager: React.FC<QuotationsManagerProps> = ({ 
+  products, 
+  logoUrl,
+  initialSearchQuery,
+  initialFilterStatus,
+  onClearInitialSearch
+}) => {
   const [quotations, setQuotations] = useState<Quotation[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [filterStatus, setFilterStatus] = useState<string>('Todas');
+  const [searchQuery, setSearchQuery] = useState(initialSearchQuery || '');
+  const [filterStatus, setFilterStatus] = useState<string>(initialFilterStatus || 'Todas');
+
+  // Status tracking states
+  const [updatingStatusId, setUpdatingStatusId] = useState<string | null>(null);
+  const [statusSuccessId, setStatusSuccessId] = useState<string | null>(null);
+  const [statusNotification, setStatusNotification] = useState<string | null>(null);
+
+  // Cancellation modal for "No Compró / No Concretada"
+  const [cancellingQuotation, setCancellingQuotation] = useState<Quotation | null>(null);
+  const [cancelReasonInput, setCancelReasonInput] = useState<string>('Precio elevado (Muy caro)');
+  const [customCancelReason, setCustomCancelReason] = useState<string>('');
 
   // Modal states
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -50,6 +83,14 @@ export const QuotationsManager: React.FC<QuotationsManagerProps> = ({ products, 
 
   // PDF Generation Tracker
   const [generatingPdfId, setGeneratingPdfId] = useState<string | null>(null);
+
+  // Sync initialSearchQuery if passed from registered orders
+  useEffect(() => {
+    if (initialSearchQuery) {
+      setSearchQuery(initialSearchQuery);
+      setFilterStatus('Todas');
+    }
+  }, [initialSearchQuery]);
 
   const loadQuotations = async () => {
     setLoading(true);
@@ -67,12 +108,14 @@ export const QuotationsManager: React.FC<QuotationsManagerProps> = ({ products, 
     loadQuotations();
   }, []);
 
-  // Filtered quotations
+  // Filtered quotations by normalized status & search query
   const filteredQuotations = useMemo(() => {
     return quotations.filter(q => {
       // Status filter
-      if (filterStatus !== 'Todas' && q.status !== filterStatus) {
-        return false;
+      if (filterStatus !== 'Todas') {
+        if (normalizeStatus(q.status) !== filterStatus) {
+          return false;
+        }
       }
       // Search query
       if (searchQuery.trim()) {
@@ -80,31 +123,36 @@ export const QuotationsManager: React.FC<QuotationsManagerProps> = ({ products, 
         const matchesClient = (q.customerName || '').toLowerCase().includes(query);
         const matchesDoc = (q.customerDocNumber || '').toLowerCase().includes(query);
         const matchesQuoteNum = (q.quoteNumber || '').toLowerCase().includes(query);
+        const matchesReason = (q.noPurchaseReason || '').toLowerCase().includes(query);
         const matchesItems = q.items.some(it => 
           (it.productName || '').toLowerCase().includes(query) || 
           (it.productCode || '').toLowerCase().includes(query)
         );
-        return matchesClient || matchesDoc || matchesQuoteNum || matchesItems;
+        return matchesClient || matchesDoc || matchesQuoteNum || matchesReason || matchesItems;
       }
       return true;
     });
   }, [quotations, filterStatus, searchQuery]);
 
-  // Status counts for pipeline metrics
+  // Status counts for pipeline metrics: 'Pendiente', 'Pagado', 'Empacando Pedido', 'Despachado', 'Entregado', 'No Concretada'
   const stats = useMemo(() => {
     const total = quotations.length;
-    const pending = quotations.filter(q => q.status === 'Pendiente').length;
-    const sent = quotations.filter(q => q.status === 'Enviada (Falta pagar)').length;
-    const paid = quotations.filter(q => q.status === 'Pagada').length;
-    const packing = quotations.filter(q => q.status === 'Empacar pedido').length;
-    const dispatched = quotations.filter(q => q.status === 'Despachado').length;
+    const pending = quotations.filter(q => normalizeStatus(q.status) === 'Pendiente').length;
+    const paid = quotations.filter(q => normalizeStatus(q.status) === 'Pagado').length;
+    const packing = quotations.filter(q => normalizeStatus(q.status) === 'Empacando Pedido').length;
+    const dispatched = quotations.filter(q => normalizeStatus(q.status) === 'Despachado').length;
+    const delivered = quotations.filter(q => normalizeStatus(q.status) === 'Entregado').length;
+    const unconcluded = quotations.filter(q => normalizeStatus(q.status) === 'No Concretada').length;
 
     const totalQuotedAmount = quotations.reduce((sum, q) => sum + (q.total || 0), 0);
     const paidAmount = quotations
-      .filter(q => q.status === 'Pagada' || q.status === 'Empacar pedido' || q.status === 'Despachado')
+      .filter(q => {
+        const s = normalizeStatus(q.status);
+        return s === 'Pagado' || s === 'Empacando Pedido' || s === 'Despachado' || s === 'Entregado';
+      })
       .reduce((sum, q) => sum + (q.total || 0), 0);
 
-    return { total, pending, sent, paid, packing, dispatched, totalQuotedAmount, paidAmount };
+    return { total, pending, paid, packing, dispatched, delivered, unconcluded, totalQuotedAmount, paidAmount };
   }, [quotations]);
 
   // Handle Save (Create or Update)
@@ -117,29 +165,60 @@ export const QuotationsManager: React.FC<QuotationsManagerProps> = ({ products, 
     await loadQuotations();
   };
 
-  // Quick 1-click status change according to requested workflow
-  // "bede el admin seleccionar cotizacion pagada o prendiente
-  // cotizacion enviaa al cliente y falta pagar o pagada
-  // y esa cotizacion debe pasar a empacar predido despues de pagado
-  // asi se debe trabajar en orden"
-  const handleStatusChange = async (quotation: Quotation, nextStatus: QuotationStatus) => {
+  // Status Change via Dropdown or Quick Step Buttons
+  // Supported flow: 'Pendiente' -> 'Pagado' -> 'Empacando Pedido' -> 'Despachado' -> 'Entregado' (or 'No Concretada')
+  const handleStatusChange = async (quotation: Quotation, nextStatus: QuotationStatus, reason?: string) => {
     if (!quotation.id) return;
+    
+    // If transitioning to No Concretada without a reason, open the cancellation modal
+    if (nextStatus === 'No Concretada' && !reason) {
+      setCancellingQuotation(quotation);
+      setCancelReasonInput('Precio elevado (Muy caro)');
+      setCustomCancelReason('');
+      return;
+    }
+
     try {
-      const updateData: Partial<Quotation> = { status: nextStatus };
-      if (nextStatus === 'Pagada') {
+      setUpdatingStatusId(quotation.id);
+      const normalizedNext = normalizeStatus(nextStatus);
+      const updateData: Partial<Quotation> = { status: normalizedNext };
+
+      if (normalizedNext === 'Pagado') {
         updateData.paidAt = new Date().toISOString();
-      } else if (nextStatus === 'Empacar pedido') {
+      } else if (normalizedNext === 'Empacando Pedido') {
         updateData.packedAt = new Date().toISOString();
-      } else if (nextStatus === 'Despachado') {
+      } else if (normalizedNext === 'Despachado') {
         updateData.dispatchedAt = new Date().toISOString();
+      } else if (normalizedNext === 'Entregado') {
+        updateData.deliveredAt = new Date().toISOString();
+      } else if (normalizedNext === 'No Concretada') {
+        updateData.noPurchaseReason = reason || cancelReasonInput || 'No especificado';
       }
 
       await updateQuotation(quotation.id, updateData);
       setQuotations(prev => prev.map(q => q.id === quotation.id ? { ...q, ...updateData } : q));
+      
+      setStatusSuccessId(quotation.id);
+      setStatusNotification(`Cotización ${quotation.quoteNumber}: estado cambiado a "${normalizedNext}"`);
+      setTimeout(() => {
+        setStatusSuccessId(null);
+      }, 2500);
+      setTimeout(() => {
+        setStatusNotification(null);
+      }, 4000);
     } catch (err) {
       console.error('Error changing status:', err);
       alert('Error al actualizar el estado de la cotización');
+    } finally {
+      setUpdatingStatusId(null);
+      setCancellingQuotation(null);
     }
+  };
+
+  const handleConfirmCancellation = async () => {
+    if (!cancellingQuotation) return;
+    const finalReason = cancelReasonInput === 'Otro motivo' ? (customCancelReason || 'Otro motivo no especificado') : cancelReasonInput;
+    await handleStatusChange(cancellingQuotation, 'No Concretada', finalReason);
   };
 
   // Handle Delete
@@ -203,48 +282,71 @@ export const QuotationsManager: React.FC<QuotationsManagerProps> = ({ products, 
     window.open(url, '_blank');
   };
 
+  // Dynamic style for the Status Select Dropdown
+  const getStatusSelectStyle = (status: string) => {
+    const norm = normalizeStatus(status);
+    switch (norm) {
+      case 'Pendiente':
+        return 'bg-amber-50 text-amber-900 border-amber-300 hover:bg-amber-100/80 focus:ring-amber-300 focus:border-amber-500';
+      case 'Pagado':
+        return 'bg-emerald-50 text-emerald-900 border-emerald-300 hover:bg-emerald-100/80 focus:ring-emerald-300 focus:border-emerald-500 font-black';
+      case 'Empacando Pedido':
+        return 'bg-purple-50 text-purple-900 border-purple-300 hover:bg-purple-100/80 focus:ring-purple-300 focus:border-purple-500 font-black';
+      case 'Despachado':
+        return 'bg-blue-900 text-white border-blue-900 hover:bg-blue-800 focus:ring-blue-400 font-black';
+      case 'Entregado':
+        return 'bg-teal-900 text-white border-teal-900 hover:bg-teal-800 focus:ring-teal-400 font-black';
+      case 'No Concretada':
+        return 'bg-rose-50 text-rose-800 border-rose-300 hover:bg-rose-100 font-bold';
+      default:
+        return 'bg-slate-100 text-slate-800 border-slate-300';
+    }
+  };
+
   // Render Status Badge
-  const getStatusBadge = (status: QuotationStatus) => {
-    switch (status) {
+  const getStatusBadge = (status: QuotationStatus, reason?: string) => {
+    const norm = normalizeStatus(status);
+    switch (norm) {
       case 'Pendiente':
         return (
-          <span className="inline-flex items-center gap-1 bg-amber-50 text-amber-700 border border-amber-200 text-[10px] font-mono font-bold px-2 py-0.5 rounded-full">
-            <Clock className="w-3 h-3 text-amber-500" />
-            Pendiente
+          <span className="inline-flex items-center gap-1.5 bg-amber-50 text-amber-800 border border-amber-200 text-[11px] font-mono font-bold px-2.5 py-0.5 rounded-full shadow-2xs">
+            <Clock className="w-3.5 h-3.5 text-amber-600" />
+            1. Pendiente
           </span>
         );
-      case 'Enviada (Falta pagar)':
+      case 'Pagado':
         return (
-          <span className="inline-flex items-center gap-1 bg-blue-50 text-blue-700 border border-blue-200 text-[10px] font-mono font-bold px-2 py-0.5 rounded-full">
-            <Send className="w-3 h-3 text-blue-500" />
-            Enviada (Falta pagar)
+          <span className="inline-flex items-center gap-1.5 bg-emerald-50 text-emerald-800 border border-emerald-200 text-[11px] font-mono font-black px-2.5 py-0.5 rounded-full shadow-2xs">
+            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+            2. Pagado
           </span>
         );
-      case 'Pagada':
+      case 'Empacando Pedido':
         return (
-          <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-mono font-bold px-2 py-0.5 rounded-full">
-            <CheckCircle2 className="w-3 h-3 text-emerald-500" />
-            Pagada
-          </span>
-        );
-      case 'Empacar pedido':
-        return (
-          <span className="inline-flex items-center gap-1 bg-purple-50 text-purple-700 border border-purple-200 text-[10px] font-mono font-bold px-2 py-0.5 rounded-full">
-            <Package className="w-3 h-3 text-purple-500" />
-            En Empaque
+          <span className="inline-flex items-center gap-1.5 bg-purple-50 text-purple-800 border border-purple-200 text-[11px] font-mono font-black px-2.5 py-0.5 rounded-full shadow-2xs">
+            <Package className="w-3.5 h-3.5 text-purple-600" />
+            3. Empacando Pedido
           </span>
         );
       case 'Despachado':
         return (
-          <span className="inline-flex items-center gap-1 bg-slate-900 text-white text-[10px] font-mono font-bold px-2 py-0.5 rounded-full">
-            <Truck className="w-3 h-3 text-emerald-400" />
-            Despachado
+          <span className="inline-flex items-center gap-1.5 bg-blue-900 text-white text-[11px] font-mono font-bold px-2.5 py-0.5 rounded-full shadow-2xs">
+            <Truck className="w-3.5 h-3.5 text-emerald-400" />
+            4. Despachado
           </span>
         );
-      case 'Cancelada':
+      case 'Entregado':
         return (
-          <span className="inline-flex items-center gap-1 bg-slate-100 text-slate-500 border border-slate-300 text-[10px] font-mono font-bold px-2 py-0.5 rounded-full">
-            Cancelada
+          <span className="inline-flex items-center gap-1.5 bg-teal-900 text-white text-[11px] font-mono font-bold px-2.5 py-0.5 rounded-full shadow-2xs">
+            <CheckCircle2 className="w-3.5 h-3.5 text-teal-300" />
+            5. Entregado
+          </span>
+        );
+      case 'No Concretada':
+        return (
+          <span className="inline-flex items-center gap-1 bg-rose-50 text-rose-700 border border-rose-200 text-[11px] font-mono font-bold px-2.5 py-0.5 rounded-full">
+            <X className="w-3 h-3 text-rose-600" />
+            No Concretada {reason ? `(${reason})` : ''}
           </span>
         );
       default:
@@ -255,83 +357,96 @@ export const QuotationsManager: React.FC<QuotationsManagerProps> = ({ products, 
   return (
     <div className="space-y-6">
       {/* 1. TOP PIPELINE METRIC CARDS */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-2.5">
         {/* Total Quotes */}
         <div 
           onClick={() => setFilterStatus('Todas')}
-          className={`bg-white p-3.5 rounded-xl border transition-all cursor-pointer shadow-3xs ${filterStatus === 'Todas' ? 'border-slate-900 ring-2 ring-slate-900/10' : 'border-slate-200 hover:border-slate-300'}`}
+          className={`bg-white p-3 rounded-xl border transition-all cursor-pointer shadow-3xs ${filterStatus === 'Todas' ? 'border-slate-900 ring-2 ring-slate-900/10' : 'border-slate-200 hover:border-slate-300'}`}
         >
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-mono uppercase text-slate-500 font-bold">Total Cotizadas</span>
-            <FileText className="w-4 h-4 text-slate-600" />
+            <span className="text-[10px] font-mono uppercase text-slate-500 font-bold">Total</span>
+            <FileText className="w-3.5 h-3.5 text-slate-600" />
           </div>
-          <p className="text-xl font-display font-black text-slate-900 mt-1">{stats.total}</p>
-          <p className="text-[10px] font-mono text-slate-500 truncate">S/. {stats.totalQuotedAmount.toFixed(2)}</p>
+          <p className="text-lg font-display font-black text-slate-900 mt-0.5">{stats.total}</p>
+          <p className="text-[9px] font-mono text-slate-500 truncate">S/. {stats.totalQuotedAmount.toFixed(2)}</p>
         </div>
 
         {/* 1. Pendientes */}
         <div 
           onClick={() => setFilterStatus('Pendiente')}
-          className={`bg-white p-3.5 rounded-xl border transition-all cursor-pointer shadow-3xs ${filterStatus === 'Pendiente' ? 'border-amber-500 ring-2 ring-amber-500/10' : 'border-slate-200 hover:border-slate-300'}`}
+          className={`p-3 rounded-xl border transition-all cursor-pointer shadow-3xs ${filterStatus === 'Pendiente' ? 'bg-amber-50/70 border-amber-500 ring-2 ring-amber-500/20' : 'bg-white border-slate-200 hover:border-amber-300'}`}
         >
           <div className="flex items-center justify-between">
             <span className="text-[10px] font-mono uppercase text-amber-700 font-bold">1. Pendientes</span>
-            <Clock className="w-4 h-4 text-amber-500" />
+            <Clock className="w-3.5 h-3.5 text-amber-500" />
           </div>
-          <p className="text-xl font-display font-black text-amber-600 mt-1">{stats.pending}</p>
-          <p className="text-[10px] font-mono text-slate-400">Borradores por enviar</p>
+          <p className="text-lg font-display font-black text-amber-600 mt-0.5">{stats.pending}</p>
+          <p className="text-[9px] font-mono text-slate-400 truncate">Por abonar</p>
         </div>
 
-        {/* 2. Enviadas (Falta pagar) */}
+        {/* 2. Pagados */}
         <div 
-          onClick={() => setFilterStatus('Enviada (Falta pagar)')}
-          className={`bg-white p-3.5 rounded-xl border transition-all cursor-pointer shadow-3xs ${filterStatus === 'Enviada (Falta pagar)' ? 'border-blue-500 ring-2 ring-blue-500/10' : 'border-slate-200 hover:border-slate-300'}`}
+          onClick={() => setFilterStatus('Pagado')}
+          className={`p-3 rounded-xl border transition-all cursor-pointer shadow-3xs ${filterStatus === 'Pagado' ? 'bg-emerald-50/70 border-emerald-500 ring-2 ring-emerald-500/20' : 'bg-white border-slate-200 hover:border-emerald-300'}`}
         >
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-mono uppercase text-blue-700 font-bold">2. Enviadas</span>
-            <Send className="w-4 h-4 text-blue-500" />
+            <span className="text-[10px] font-mono uppercase text-emerald-700 font-bold">2. Pagados</span>
+            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
           </div>
-          <p className="text-xl font-display font-black text-blue-600 mt-1">{stats.sent}</p>
-          <p className="text-[10px] font-mono text-slate-400">Falta pagar</p>
+          <p className="text-lg font-display font-black text-emerald-600 mt-0.5">{stats.paid}</p>
+          <p className="text-[9px] font-mono text-emerald-700 truncate font-bold">Abono OK</p>
         </div>
 
-        {/* 3. Pagadas */}
+        {/* 3. Empacando Pedido */}
         <div 
-          onClick={() => setFilterStatus('Pagada')}
-          className={`bg-white p-3.5 rounded-xl border transition-all cursor-pointer shadow-3xs ${filterStatus === 'Pagada' ? 'border-emerald-500 ring-2 ring-emerald-500/10' : 'border-slate-200 hover:border-slate-300'}`}
+          onClick={() => setFilterStatus('Empacando Pedido')}
+          className={`p-3 rounded-xl border transition-all cursor-pointer shadow-3xs ${filterStatus === 'Empacando Pedido' ? 'bg-purple-50/70 border-purple-500 ring-2 ring-purple-500/20' : 'bg-white border-slate-200 hover:border-purple-300'}`}
         >
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-mono uppercase text-emerald-700 font-bold">3. Pagadas</span>
-            <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+            <span className="text-[10px] font-mono uppercase text-purple-700 font-bold">3. Preparando</span>
+            <Package className="w-3.5 h-3.5 text-purple-500" />
           </div>
-          <p className="text-xl font-display font-black text-emerald-600 mt-1">{stats.paid}</p>
-          <p className="text-[10px] font-mono text-emerald-700 truncate font-bold">Abono verificado</p>
+          <p className="text-lg font-display font-black text-purple-600 mt-0.5">{stats.packing}</p>
+          <p className="text-[9px] font-mono text-slate-400 truncate">En almacén</p>
         </div>
 
-        {/* 4. Empacar Pedido */}
-        <div 
-          onClick={() => setFilterStatus('Empacar pedido')}
-          className={`bg-white p-3.5 rounded-xl border transition-all cursor-pointer shadow-3xs ${filterStatus === 'Empacar pedido' ? 'border-purple-500 ring-2 ring-purple-500/10' : 'border-slate-200 hover:border-slate-300'}`}
-        >
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-mono uppercase text-purple-700 font-bold">4. Empacar</span>
-            <Package className="w-4 h-4 text-purple-500" />
-          </div>
-          <p className="text-xl font-display font-black text-purple-600 mt-1">{stats.packing}</p>
-          <p className="text-[10px] font-mono text-slate-400">En almacén</p>
-        </div>
-
-        {/* 5. Despachado */}
+        {/* 4. Despachado */}
         <div 
           onClick={() => setFilterStatus('Despachado')}
-          className={`bg-white p-3.5 rounded-xl border transition-all cursor-pointer shadow-3xs ${filterStatus === 'Despachado' ? 'border-slate-900 ring-2 ring-slate-900/10' : 'border-slate-200 hover:border-slate-300'}`}
+          className={`p-3 rounded-xl border transition-all cursor-pointer shadow-3xs ${filterStatus === 'Despachado' ? 'bg-blue-50/70 border-blue-600 ring-2 ring-blue-600/20' : 'bg-white border-slate-200 hover:border-blue-300'}`}
         >
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-mono uppercase text-slate-800 font-bold">5. Despachado</span>
-            <Truck className="w-4 h-4 text-slate-700" />
+            <span className="text-[10px] font-mono uppercase text-blue-700 font-bold">4. Despachado</span>
+            <Truck className="w-3.5 h-3.5 text-blue-600" />
           </div>
-          <p className="text-xl font-display font-black text-slate-900 mt-1">{stats.dispatched}</p>
-          <p className="text-[10px] font-mono text-slate-400">Enviado por agencia</p>
+          <p className="text-lg font-display font-black text-blue-700 mt-0.5">{stats.dispatched}</p>
+          <p className="text-[9px] font-mono text-slate-400 truncate">En agencia</p>
+        </div>
+
+        {/* 5. Entregado */}
+        <div 
+          onClick={() => setFilterStatus('Entregado')}
+          className={`p-3 rounded-xl border transition-all cursor-pointer shadow-3xs ${filterStatus === 'Entregado' ? 'bg-teal-50/70 border-teal-600 ring-2 ring-teal-600/20' : 'bg-white border-slate-200 hover:border-teal-300'}`}
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-mono uppercase text-teal-800 font-bold">5. Entregado</span>
+            <CheckCircle2 className="w-3.5 h-3.5 text-teal-600" />
+          </div>
+          <p className="text-lg font-display font-black text-teal-700 mt-0.5">{stats.delivered}</p>
+          <p className="text-[9px] font-mono text-teal-700 truncate font-bold">Conforme</p>
+        </div>
+
+        {/* 6. No Concluidas */}
+        <div 
+          onClick={() => setFilterStatus('No Concretada')}
+          className={`p-3 rounded-xl border transition-all cursor-pointer shadow-3xs ${filterStatus === 'No Concretada' ? 'bg-rose-50/70 border-rose-500 ring-2 ring-rose-500/20' : 'bg-white border-slate-200 hover:border-rose-300'}`}
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-mono uppercase text-rose-700 font-bold">6. No Compró</span>
+            <X className="w-3.5 h-3.5 text-rose-500" />
+          </div>
+          <p className="text-lg font-display font-black text-rose-600 mt-0.5">{stats.unconcluded}</p>
+          <p className="text-[9px] font-mono text-slate-400 truncate">No concluida</p>
         </div>
       </div>
 
@@ -342,7 +457,7 @@ export const QuotationsManager: React.FC<QuotationsManagerProps> = ({ products, 
           <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
           <input
             type="text"
-            placeholder="Buscar cotización por cliente, RUC, DNI, N° de cotización o repuesto..."
+            placeholder="Buscar cotización por cliente, RUC, DNI, N° cotización, motivo o repuesto..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs focus:bg-white focus:outline-hidden focus:border-emerald-500"
@@ -358,10 +473,11 @@ export const QuotationsManager: React.FC<QuotationsManagerProps> = ({ products, 
           >
             <option value="Todas">Filtrar: Todas ({stats.total})</option>
             <option value="Pendiente">🟡 1. Pendientes ({stats.pending})</option>
-            <option value="Enviada (Falta pagar)">🔵 2. Enviadas (Falta pagar) ({stats.sent})</option>
-            <option value="Pagada">🟢 3. Pagadas ({stats.paid})</option>
-            <option value="Empacar pedido">📦 4. Empacar Pedido ({stats.packing})</option>
-            <option value="Despachado">🚚 5. Despachado ({stats.dispatched})</option>
+            <option value="Pagado">🟢 2. Pagados ({stats.paid})</option>
+            <option value="Empacando Pedido">📦 3. En Almacén / Empacando ({stats.packing})</option>
+            <option value="Despachado">🚚 4. Despachados ({stats.dispatched})</option>
+            <option value="Entregado">✅ 5. Entregados al Cliente ({stats.delivered})</option>
+            <option value="No Concretada">❌ 6. No Concluidas / No Compró ({stats.unconcluded})</option>
           </select>
 
           <button
@@ -382,19 +498,32 @@ export const QuotationsManager: React.FC<QuotationsManagerProps> = ({ products, 
             className="bg-emerald-500 hover:bg-emerald-450 active:scale-95 text-slate-950 font-display font-black text-xs px-4 py-2.5 rounded-xl transition-all flex items-center gap-2 shadow-md shadow-emerald-500/20 shrink-0"
           >
             <Plus className="w-4 h-4" />
-            <span>+ Nueva Cotización</span>
+            <span>+ Nueva Cotización Manual</span>
           </button>
         </div>
       </div>
 
+      {/* Floating Status Notification Toast */}
+      {statusNotification && (
+        <div className="bg-emerald-600 text-white px-4 py-2.5 rounded-xl text-xs font-mono font-bold flex items-center justify-between shadow-lg animate-fadeIn">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-emerald-200 shrink-0" />
+            <span>{statusNotification}</span>
+          </div>
+          <button onClick={() => setStatusNotification(null)} className="text-emerald-200 hover:text-white ml-3">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
       {/* 3. WORKFLOW ORDER BANNER (Guía de trabajo ordenado) */}
       <div className="bg-slate-900 text-white p-3.5 rounded-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-3 text-xs font-mono">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <span className="bg-emerald-500 text-slate-950 font-black px-2 py-0.5 rounded text-[10px]">
-            FLUJO DE TRABAJO VELKOR
+            FLUJO COMPLETO VELKOR
           </span>
           <span className="text-slate-300">
-            Trabajo en orden: <b>1. Cotizar</b> ➡️ <b>2. Enviar</b> ➡️ <b>3. Pagada</b> ➡️ <b>4. Empacar Almacén</b> ➡️ <b>5. Despachar</b>
+            <b>1. Cotizar (Pendiente)</b> ➡️ <b>2. Pagado</b> ➡️ <b>3. Empacando (Almacén)</b> ➡️ <b>4. Despachado (Agencia)</b> ➡️ <b>5. Entregado</b>
           </span>
         </div>
         <span className="text-[11px] text-slate-400">
@@ -432,19 +561,65 @@ export const QuotationsManager: React.FC<QuotationsManagerProps> = ({ products, 
         <div className="space-y-3">
           {filteredQuotations.map((q) => {
             const isGeneratingThisPdf = generatingPdfId === q.id;
+            const currentNorm = normalizeStatus(q.status);
+            const isUpdating = updatingStatusId === q.id;
+            const isSuccess = statusSuccessId === q.id;
 
             return (
               <div 
                 key={q.id} 
-                className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-2xs hover:shadow-md transition-all space-y-4"
+                className={`bg-white border rounded-2xl p-4 sm:p-5 shadow-2xs hover:shadow-md transition-all space-y-4 ${
+                  currentNorm === 'Pendiente' ? 'border-amber-200 hover:border-amber-400/70' :
+                  currentNorm === 'Pagado' ? 'border-emerald-200 hover:border-emerald-400/70' :
+                  currentNorm === 'Empacando Pedido' ? 'border-purple-200 hover:border-purple-400/70' :
+                  'border-slate-200 hover:border-slate-300'
+                }`}
               >
-                {/* Upper line: Quote ID, date, customer, status */}
+                {/* Upper line: Quote ID, date, STATUS DROPDOWN, total */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
-                  <div className="flex items-center gap-3">
+                  <div className="flex flex-wrap items-center gap-2.5 sm:gap-3">
                     <span className="font-mono font-black text-sm text-slate-900 bg-slate-100 px-2.5 py-1 rounded-lg border border-slate-200">
                       {q.quoteNumber}
                     </span>
-                    {getStatusBadge(q.status)}
+
+                    {/* STATUS DROPDOWN SELECTOR (Requested feature) */}
+                    <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200/80 px-2.5 py-1 rounded-xl">
+                      <label 
+                        htmlFor={`status-select-${q.id}`} 
+                        className="text-[10px] font-mono uppercase text-slate-500 font-bold hidden sm:inline"
+                      >
+                        Estado:
+                      </label>
+                      <div className="relative inline-flex items-center">
+                        <select
+                          id={`status-select-${q.id}`}
+                          value={currentNorm}
+                          onChange={(e) => handleStatusChange(q, e.target.value as QuotationStatus)}
+                          disabled={isUpdating}
+                          aria-label={`Cambiar estado de cotización ${q.quoteNumber}`}
+                          className={`font-mono font-black text-xs pl-2.5 pr-7 py-1 rounded-lg border transition-all appearance-none cursor-pointer focus:outline-hidden focus:ring-2 shadow-2xs ${getStatusSelectStyle(currentNorm)}`}
+                        >
+                          <option value="Pendiente">🟡 1. Pendiente</option>
+                          <option value="Pagado">🟢 2. Pagado</option>
+                          <option value="Empacando Pedido">📦 3. Empacando</option>
+                          <option value="Despachado">🚚 4. Despachado</option>
+                          <option value="Entregado">✅ 5. Entregado</option>
+                          <option value="No Concretada">❌ 6. No Compró</option>
+                        </select>
+                        <ChevronDown className="w-3.5 h-3.5 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none opacity-60" />
+                      </div>
+
+                      {isUpdating && (
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin text-emerald-600 ml-1" />
+                      )}
+                      {isSuccess && (
+                        <span className="text-[10px] font-mono font-bold text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded text-center animate-fadeIn flex items-center gap-0.5">
+                          <Check className="w-3 h-3 text-emerald-600" />
+                          Guardado
+                        </span>
+                      )}
+                    </div>
+
                     <span className="text-[11px] font-mono text-slate-400">
                       Emisión: {q.date || new Date(q.createdAt).toLocaleDateString('es-PE')}
                     </span>
@@ -465,7 +640,7 @@ export const QuotationsManager: React.FC<QuotationsManagerProps> = ({ products, 
                     <p className="text-[10px] font-mono uppercase text-slate-400 font-bold">Cliente / Razón Social</p>
                     <p className="font-bold text-slate-900 text-sm truncate">{q.customerName}</p>
                     <p className="font-mono text-slate-600">
-                      <span className="font-bold">{q.customerDocType}:</span> {q.customerDocNumber}
+                      <span className="font-bold">{q.customerDocType}:</span> {q.customerDocNumber || 'S/N'}
                     </p>
                     {q.customerPhone && (
                       <p className="font-mono text-slate-500">
@@ -475,6 +650,11 @@ export const QuotationsManager: React.FC<QuotationsManagerProps> = ({ products, 
                     {q.customerAddress && (
                       <p className="text-slate-500 truncate">
                         📍 {q.customerAddress} {q.customerCity ? `(${q.customerCity})` : ''}
+                      </p>
+                    )}
+                    {q.noPurchaseReason && currentNorm === 'No Concretada' && (
+                      <p className="text-[11px] text-rose-700 bg-rose-50 border border-rose-200 p-1.5 rounded font-mono">
+                        ⚠️ <b>Motivo no compra:</b> {q.noPurchaseReason}
                       </p>
                     )}
                   </div>
@@ -508,75 +688,129 @@ export const QuotationsManager: React.FC<QuotationsManagerProps> = ({ products, 
                 {/* Bottom line: WORKFLOW PROGRESSION BUTTONS + ACTIONS */}
                 <div className="pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3">
                   
-                  {/* WORKFLOW ADVANCEMENT BUTTONS (Orderly progression as required) */}
+                  {/* WORKFLOW STEP PROGRESSION BUTTONS (Orderly flow as requested) */}
                   <div className="flex items-center gap-2 flex-wrap">
-                    {/* If Pendiente -> Next is 'Enviada (Falta pagar)' */}
-                    {q.status === 'Pendiente' && (
-                      <button
-                        onClick={() => handleStatusChange(q, 'Enviada (Falta pagar)')}
-                        className="bg-blue-600 hover:bg-blue-500 text-white font-mono font-bold text-xs px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 shadow-2xs cursor-pointer"
-                      >
-                        <Send className="w-3.5 h-3.5" />
-                        <span>Marcar como Enviada al Cliente</span>
-                      </button>
+                    {/* If Pendiente -> Next is 'Pagado', or cancel */}
+                    {currentNorm === 'Pendiente' && (
+                      <>
+                        <button
+                          onClick={() => handleStatusChange(q, 'Pagado')}
+                          disabled={isUpdating}
+                          className="bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white font-mono font-black text-xs px-3.5 py-1.5 rounded-lg transition-all flex items-center gap-1.5 shadow-sm cursor-pointer"
+                          title="Marcar cotización como pagada por el cliente"
+                        >
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          <span>➡️ Marcar como Pagado</span>
+                        </button>
+                        <button
+                          onClick={() => {
+                            setCancellingQuotation(q);
+                            setCancelReasonInput('Precio elevado (Muy caro)');
+                            setCustomCancelReason('');
+                          }}
+                          disabled={isUpdating}
+                          className="bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-mono font-bold text-xs px-2.5 py-1.5 rounded-lg transition-all flex items-center gap-1 cursor-pointer"
+                          title="Cliente no compró o canceló la cotización"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                          <span>No Compró</span>
+                        </button>
+                      </>
                     )}
 
-                    {/* If Enviada (Falta pagar) -> Next is 'Pagada' */}
-                    {q.status === 'Enviada (Falta pagar)' && (
-                      <button
-                        onClick={() => handleStatusChange(q, 'Pagada')}
-                        className="bg-emerald-600 hover:bg-emerald-500 text-white font-mono font-black text-xs px-3.5 py-1.5 rounded-lg transition-all flex items-center gap-1.5 shadow-sm cursor-pointer"
-                      >
-                        <CheckCircle2 className="w-3.5 h-3.5" />
-                        <span>Marcar como Pagada (Abono Recibido)</span>
-                      </button>
+                    {/* If Pagado -> Next is 'Empacando Pedido' */}
+                    {currentNorm === 'Pagado' && (
+                      <>
+                        <button
+                          onClick={() => handleStatusChange(q, 'Empacando Pedido')}
+                          disabled={isUpdating}
+                          className="bg-purple-600 hover:bg-purple-500 active:scale-95 text-white font-mono font-black text-xs px-3.5 py-1.5 rounded-lg transition-all flex items-center gap-1.5 shadow-sm cursor-pointer animate-pulse"
+                          title="Enviar orden a almacén para empacar repuestos"
+                        >
+                          <Package className="w-3.5 h-3.5" />
+                          <span>➡️ Pasar a Empacando Pedido</span>
+                        </button>
+                        <button
+                          onClick={() => handleStatusChange(q, 'Pendiente')}
+                          disabled={isUpdating}
+                          className="text-slate-400 hover:text-slate-600 text-[10px] font-mono underline ml-1 cursor-pointer"
+                        >
+                          Volver a Pendiente
+                        </button>
+                      </>
                     )}
 
-                    {/* If Pagada -> Next is 'Empacar pedido' (As requested: "y esa cotizacion debe pasar a empacar predido despues de pagado") */}
-                    {q.status === 'Pagada' && (
-                      <button
-                        onClick={() => handleStatusChange(q, 'Empacar pedido')}
-                        className="bg-purple-600 hover:bg-purple-500 text-white font-mono font-black text-xs px-3.5 py-1.5 rounded-lg transition-all flex items-center gap-1.5 shadow-sm cursor-pointer animate-pulse"
-                      >
-                        <Package className="w-3.5 h-3.5" />
-                        <span>Pasar a Empacar Pedido (Almacén)</span>
-                      </button>
-                    )}
-
-                    {/* If Empacar pedido -> Next is 'Despachado' */}
-                    {q.status === 'Empacar pedido' && (
+                    {/* If Empacando Pedido -> Next is 'Despachado' */}
+                    {currentNorm === 'Empacando Pedido' && (
                       <button
                         onClick={() => handleStatusChange(q, 'Despachado')}
-                        className="bg-slate-900 hover:bg-black text-white font-mono font-black text-xs px-3.5 py-1.5 rounded-lg transition-all flex items-center gap-1.5 shadow-sm cursor-pointer"
+                        disabled={isUpdating}
+                        className="bg-blue-600 hover:bg-blue-500 active:scale-95 text-white font-mono font-black text-xs px-3.5 py-1.5 rounded-lg transition-all flex items-center gap-1.5 shadow-sm cursor-pointer"
+                        title="Marcar pedido como empacado y despachado por agencia"
                       >
-                        <Truck className="w-3.5 h-3.5 text-emerald-400" />
-                        <span>Marcar como Despachado / Enviado</span>
+                        <Truck className="w-3.5 h-3.5 text-white" />
+                        <span>➡️ Marcar como Despachado</span>
+                      </button>
+                    )}
+
+                    {/* If Despachado -> Next is 'Entregado' */}
+                    {currentNorm === 'Despachado' && (
+                      <button
+                        onClick={() => handleStatusChange(q, 'Entregado')}
+                        disabled={isUpdating}
+                        className="bg-teal-600 hover:bg-teal-500 active:scale-95 text-white font-mono font-black text-xs px-3.5 py-1.5 rounded-lg transition-all flex items-center gap-1.5 shadow-sm cursor-pointer"
+                        title="Confirmar que el cliente recibió su pedido conforme"
+                      >
+                        <CheckCircle2 className="w-3.5 h-3.5 text-teal-200" />
+                        <span>➡️ Confirmar Entrega al Cliente</span>
                       </button>
                     )}
 
                     {/* Completed indicator */}
-                    {q.status === 'Despachado' && (
-                      <span className="text-[11px] font-mono text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-1 rounded font-bold flex items-center gap-1">
-                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                        Pedido Completado y Despachado
+                    {currentNorm === 'Entregado' && (
+                      <span className="text-[11px] font-mono text-teal-800 bg-teal-50 border border-teal-200 px-2.5 py-1 rounded-lg font-bold flex items-center gap-1.5">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-teal-600" />
+                        Pedido Entregado Conforme — Venta Concluida Exitosamente
                       </span>
                     )}
 
-                    {/* Quick status selector dropdown if admin wants to force any state */}
-                    <div className="flex items-center gap-1 text-[11px] font-mono text-slate-500">
-                      <span>Cambiar:</span>
-                      <select
-                        value={q.status}
-                        onChange={(e) => handleStatusChange(q, e.target.value as QuotationStatus)}
-                        className="bg-slate-100 border border-slate-200 rounded px-2 py-1 text-[11px] font-mono font-bold focus:outline-hidden"
-                      >
-                        <option value="Pendiente">Pendiente</option>
-                        <option value="Enviada (Falta pagar)">Enviada (Falta pagar)</option>
-                        <option value="Pagada">Pagada</option>
-                        <option value="Empacar pedido">Empacar pedido</option>
-                        <option value="Despachado">Despachado</option>
-                        <option value="Cancelada">Cancelada</option>
-                      </select>
+                    {/* Unconcluded indicator */}
+                    {currentNorm === 'No Concretada' && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-[11px] font-mono text-rose-800 bg-rose-50 border border-rose-200 px-2.5 py-1 rounded-lg font-bold flex items-center gap-1.5">
+                          <X className="w-3.5 h-3.5 text-rose-600" />
+                          No Concluida {q.noPurchaseReason ? `• ${q.noPurchaseReason}` : ''}
+                        </span>
+                        <button
+                          onClick={() => handleStatusChange(q, 'Pendiente')}
+                          disabled={isUpdating}
+                          className="text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-[10px] font-mono font-bold px-2 py-1 rounded-md transition-colors cursor-pointer"
+                          title="Reactivar cotización en estado pendiente"
+                        >
+                          🔄 Reactivar Cotización
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Secondary Dropdown in bottom bar for easy access */}
+                    <div className="flex items-center gap-1.5 text-[11px] font-mono text-slate-500 ml-1">
+                      <span>Cambiar a:</span>
+                      <div className="relative inline-flex items-center">
+                        <select
+                          value={currentNorm}
+                          onChange={(e) => handleStatusChange(q, e.target.value as QuotationStatus)}
+                          disabled={isUpdating}
+                          className={`border rounded-lg pl-2 pr-6 py-1 text-[11px] font-mono font-bold focus:outline-hidden appearance-none cursor-pointer ${getStatusSelectStyle(currentNorm)}`}
+                        >
+                          <option value="Pendiente">🟡 1. Pendiente</option>
+                          <option value="Pagado">🟢 2. Pagado</option>
+                          <option value="Empacando Pedido">📦 3. Empacando</option>
+                          <option value="Despachado">🚚 4. Despachado</option>
+                          <option value="Entregado">✅ 5. Entregado</option>
+                          <option value="No Concretada">❌ 6. No Compró</option>
+                        </select>
+                        <ChevronDown className="w-3 h-3 absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none opacity-60" />
+                      </div>
                     </div>
                   </div>
 
@@ -778,6 +1012,78 @@ export const QuotationsManager: React.FC<QuotationsManagerProps> = ({ products, 
                   </div>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 7. CANCEL / NO COMPRÓ REASON MODAL */}
+      {cancellingQuotation && (
+        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto animate-fadeIn">
+          <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-slate-200 overflow-hidden p-5 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2">
+                <span className="p-1.5 bg-rose-100 text-rose-700 rounded-lg">
+                  <X className="w-4 h-4" />
+                </span>
+                <div>
+                  <h4 className="font-bold text-slate-900 text-sm">Registrar Cotización No Concluida</h4>
+                  <p className="text-[11px] text-slate-500 font-mono">{cancellingQuotation.quoteNumber} — {cancellingQuotation.customerName}</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setCancellingQuotation(null)}
+                className="text-slate-400 hover:text-slate-600 p-1"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              <label className="block text-xs font-bold text-slate-700">
+                Seleccione el motivo de no compra / cancelación:
+              </label>
+              <select
+                value={cancelReasonInput}
+                onChange={(e) => setCancelReasonInput(e.target.value)}
+                className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-mono font-medium focus:bg-white focus:outline-hidden focus:border-rose-500"
+              >
+                <option value="Precio elevado (Muy caro)">Precio elevado (Muy caro)</option>
+                <option value="Falta de stock disponible">Falta de stock disponible</option>
+                <option value="No volvió a responder WhatsApp">No volvió a responder WhatsApp</option>
+                <option value="Costo de envío elevado">Costo de envío elevado</option>
+                <option value="Demora en tiempo de entrega">Demora en tiempo de entrega</option>
+                <option value="Prefirió comprar en su localidad">Prefirió comprar en su localidad</option>
+                <option value="Solo estaba consultando">Solo estaba consultando precios</option>
+                <option value="Otro motivo">Otro motivo personalizado...</option>
+              </select>
+
+              {cancelReasonInput === 'Otro motivo' && (
+                <input
+                  type="text"
+                  placeholder="Escriba el motivo detallado..."
+                  value={customCancelReason}
+                  onChange={(e) => setCustomCancelReason(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs focus:bg-white focus:outline-hidden focus:border-rose-500"
+                />
+              )}
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setCancellingQuotation(null)}
+                className="px-3 py-1.5 rounded-xl text-xs font-mono font-bold text-slate-600 hover:bg-slate-100 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmCancellation}
+                className="bg-rose-600 hover:bg-rose-700 active:scale-95 text-white font-mono font-bold text-xs px-4 py-2 rounded-xl transition-all shadow-sm"
+              >
+                Confirmar No Compra
+              </button>
             </div>
           </div>
         </div>

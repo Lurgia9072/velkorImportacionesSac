@@ -433,15 +433,14 @@ export const QuotationModal: React.FC<QuotationModalProps> = ({
               <div className="flex items-center gap-2">
                 <span className="font-bold text-slate-700 text-xs">Estado de la Cotización:</span>
                 <select
-                  value={status}
+                  value={status === 'Pagada' ? 'Pagado' : status === 'Empacar pedido' ? 'Empacando Pedido' : status}
                   onChange={(e) => setStatus(e.target.value as QuotationStatus)}
                   className="bg-white border border-slate-300 font-mono font-bold text-xs px-3 py-1.5 rounded-lg focus:outline-hidden focus:border-emerald-500 text-slate-800"
                 >
-                  <option value="Pendiente">🟡 Pendiente (Borrador interno)</option>
-                  <option value="Enviada (Falta pagar)">🔵 Enviada al Cliente (Falta pagar)</option>
-                  <option value="Pagada">🟢 Pagada (Cliente confirmó abono)</option>
-                  <option value="Empacar pedido">📦 Empacar Pedido (En almacén)</option>
-                  <option value="Despachado">🚚 Despachado (Enviado / Entregado)</option>
+                  <option value="Pendiente">🟡 Pendiente</option>
+                  <option value="Pagado">🟢 Pagado</option>
+                  <option value="Empacando Pedido">📦 Empacando Pedido</option>
+                  <option value="Despachado">🚚 Despachado</option>
                   <option value="Cancelada">⚪ Cancelada</option>
                 </select>
               </div>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Product, Order, CATEGORIES } from '../types';
+import { Product, Order, CATEGORIES, Quotation, QuotationItem } from '../types';
 import { 
   getProducts, 
   createProduct, 
@@ -7,6 +7,7 @@ import {
   deleteProduct, 
   getOrders, 
   updateOrder,
+  createQuotation,
   getStoreConfig,
   updateStoreConfig,
   db
@@ -70,6 +71,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToCatalog, initial
   const [products, setProducts] = useState<Product[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
+  const [quotationSearchQuery, setQuotationSearchQuery] = useState('');
 
   // Admin Inventory Pagination States
   const [adminCurrentPage, setAdminCurrentPage] = useState<number>(1);
@@ -376,6 +378,103 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToCatalog, initial
     } catch (err) {
       console.error('Error updating group orders:', err);
       alert('Error al actualizar el pedido');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleConvertOrderToQuotation = async (group: {
+    id: string;
+    customerName: string;
+    customerPhone: string;
+    deliveryAddress: string;
+    region: string;
+    requestType: string;
+    paymentMethod: string;
+    status: string;
+    createdAt: string;
+    items: Order[];
+  }) => {
+    try {
+      setLoading(true);
+      const year = new Date().getFullYear();
+      const randomSeq = Math.floor(1000 + Math.random() * 9000);
+      const quoteNumber = `VK-COT-${year}-${randomSeq}`;
+
+      const quotationItems: QuotationItem[] = group.items.map((item, idx) => ({
+        itemNumber: idx + 1,
+        productId: item.productId,
+        productCode: item.productCode || `VK-${idx + 1}`,
+        productName: item.productName,
+        brand: 'Velkor',
+        quantity: item.quantity || 1,
+        unitType: item.unitType || 'unidades',
+        unitPrice: item.productPrice || 0,
+        totalPrice: (item.quantity || 1) * (item.productPrice || 0)
+      }));
+
+      const subtotal = quotationItems.reduce((sum, it) => sum + it.totalPrice, 0);
+      const igvRate = 0.18;
+      const igvAmount = subtotal * igvRate;
+      const total = subtotal + igvAmount;
+
+      const quotationPayload: Omit<Quotation, 'id'> = {
+        quoteNumber,
+        date: new Date().toISOString().split('T')[0],
+        validityDays: 7,
+        customerName: group.customerName || 'Cliente Velkor',
+        customerDocType: 'RUC',
+        customerDocNumber: '',
+        customerPhone: group.customerPhone || '',
+        customerAddress: group.deliveryAddress || '',
+        customerCity: group.region || 'Lima',
+        items: quotationItems,
+        subtotal,
+        includeIgv: true,
+        igvRate,
+        igvAmount,
+        total,
+        status: 'Pendiente',
+        notes: `Generado desde pedido registrado en carrito (${group.id.replace('VK-GRP-', '')}). Pago preferido: ${group.paymentMethod}.`,
+        originOrderGroupId: group.id,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+
+      const quoteId = await createQuotation(quotationPayload);
+
+      // Update all order items in Firestore to status 'Cotizado'
+      for (const item of group.items) {
+        if (item.id) {
+          await updateOrder(item.id, {
+            status: 'Cotizado',
+            quotationId: quoteId,
+            quotationNumber: quoteNumber
+          });
+        }
+      }
+
+      // Update local orders state
+      setOrders(prev => prev.map(o => {
+        const itemInGroup = group.items.find(it => it.id === o.id);
+        if (itemInGroup) {
+          return {
+            ...o,
+            status: 'Cotizado',
+            quotationId: quoteId,
+            quotationNumber: quoteNumber
+          };
+        }
+        return o;
+      }));
+
+      // Switch to quotations tab and focus on this quote
+      setQuotationSearchQuery(quoteNumber);
+      setActiveTab('quotations');
+      alert(`¡Pedido de ${group.customerName} cotizado con éxito!\nSe generó la Cotización ${quoteNumber} en estado "Pendiente" dentro de Cotizaciones.`);
+    } catch (err) {
+      console.error('Error converting order to quotation:', err);
+      alert('Error al generar la cotización desde el pedido');
     } finally {
       setLoading(false);
     }
@@ -1171,7 +1270,12 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToCatalog, initial
               {/* ==================== 0. TAB: QUOTATIONS / COTIZACIONES ==================== */}
               {activeTab === 'quotations' && (
                 <div id="admin-quotations-tab" className="animate-slideDown">
-                  <QuotationsManager products={products} logoUrl={storeLogo} />
+                  <QuotationsManager 
+                    products={products} 
+                    logoUrl={storeLogo}
+                    initialSearchQuery={quotationSearchQuery}
+                    onClearInitialSearch={() => setQuotationSearchQuery('')}
+                  />
                 </div>
               )}
 
@@ -1182,7 +1286,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToCatalog, initial
                 <h2 className="font-display font-extrabold text-base text-slate-900">Historial de Ventas y Solicitudes</h2>
                 <div className="flex flex-wrap gap-2 text-xs font-mono">
                   <span className="px-2.5 py-1 bg-amber-50 text-amber-700 border border-amber-100 rounded-md">
-                    En Seguimiento: {metrics.inProgress}
+                    En Seguimiento: {orders.filter(o => o.status === 'En seguimiento').length}
+                  </span>
+                  <span className="px-2.5 py-1 bg-blue-50 text-blue-700 border border-blue-100 rounded-md">
+                    Cotizados: {orders.filter(o => o.status === 'Cotizado').length}
                   </span>
                   <span className="px-2.5 py-1 bg-emerald-50 text-emerald-700 border border-emerald-100 rounded-md">
                     Ventas Cerradas: {metrics.closedSales}
@@ -1199,7 +1306,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToCatalog, initial
                 <div>
                   <label className="block text-[10px] font-mono uppercase text-slate-500 mb-1">Filtrar por Estado de Venta</label>
                   <div className="flex flex-wrap gap-1">
-                    {['Todos', 'En seguimiento', 'Venta cerrada', 'No compró'].map(st => (
+                    {['Todos', 'En seguimiento', 'Cotizado', 'Venta cerrada', 'No compró'].map(st => (
                       <button
                         key={st}
                         type="button"
@@ -1387,7 +1494,12 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToCatalog, initial
 
                               {/* Order Status */}
                               <td className="p-4">
-                                {group.status === 'Venta cerrada' ? (
+                                {group.status === 'Cotizado' ? (
+                                  <span className="inline-flex items-center gap-1.5 text-blue-700 font-bold text-xs bg-blue-50 px-2.5 py-1 rounded-md border border-blue-200">
+                                    <FileText className="w-3.5 h-3.5 text-blue-600" />
+                                    En Cotización
+                                  </span>
+                                ) : group.status === 'Venta cerrada' ? (
                                   <span className="inline-flex items-center gap-1 text-emerald-600 font-bold text-xs bg-emerald-50 px-2.5 py-1 rounded-md border border-emerald-100">
                                     <CheckCircle className="w-3.5 h-3.5" />
                                     Venta Cerrada
@@ -1464,29 +1576,43 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToCatalog, initial
                                   </div>
                                 ) : (
                                   <div className="flex items-center justify-end gap-1.5">
-                                    {group.status === 'En seguimiento' && (
-                                      <>
+                                    {group.status === 'En seguimiento' ? (
+                                      <button
+                                        id={`btn-quote-order-${group.id}`}
+                                        onClick={() => handleConvertOrderToQuotation(group)}
+                                        className="bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white font-mono text-xs font-black px-3.5 py-1.5 rounded-lg shadow-sm transition-all flex items-center gap-1.5 whitespace-nowrap cursor-pointer"
+                                        title="Generar cotización formal y transferir a la bandeja de cotizaciones"
+                                      >
+                                        <FileText className="w-3.5 h-3.5" />
+                                        <span>📄 Cotizar Pedido</span>
+                                      </button>
+                                    ) : group.status === 'Cotizado' ? (
+                                      <div className="flex items-center justify-end gap-1.5">
                                         <button
-                                          id={`btn-close-sale-${group.id}`}
-                                          onClick={() => handleUpdateGroupOrderStatus(group.id, group.items, 'Venta cerrada')}
-                                          className="bg-emerald-600 hover:bg-emerald-700 text-white font-mono text-[11px] font-bold px-2 py-1 rounded transition-colors whitespace-nowrap"
+                                          id={`btn-view-quote-${group.id}`}
+                                          onClick={() => {
+                                            setQuotationSearchQuery(group.items[0]?.quotationNumber || group.customerName);
+                                            setActiveTab('quotations');
+                                          }}
+                                          className="bg-blue-600 hover:bg-blue-500 active:scale-95 text-white font-mono text-xs font-bold px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 shadow-2xs whitespace-nowrap cursor-pointer"
+                                          title="Ver cotización vinculada en el gestor de cotizaciones"
                                         >
-                                          ✓ Despachar Carrito
+                                          <Eye className="w-3.5 h-3.5" />
+                                          <span>Ver Cotización</span>
                                         </button>
                                         <button
-                                          id={`btn-reject-sale-${group.id}`}
-                                          onClick={() => setSelectedOrderForCancel(group.id)}
-                                          className="bg-rose-100 hover:bg-rose-200 text-rose-700 font-mono text-[11px] font-bold px-2 py-1 rounded transition-colors whitespace-nowrap"
+                                          id={`btn-reopen-${group.id}`}
+                                          onClick={() => handleUpdateGroupOrderStatus(group.id, group.items, 'En seguimiento')}
+                                          className="text-slate-400 hover:text-slate-600 font-mono text-[10px] underline whitespace-nowrap cursor-pointer"
                                         >
-                                          ✗ No Compró
+                                          Reabrir
                                         </button>
-                                      </>
-                                    )}
-                                    {group.status !== 'En seguimiento' && (
+                                      </div>
+                                    ) : (
                                       <button
                                         id={`btn-reopen-${group.id}`}
                                         onClick={() => handleUpdateGroupOrderStatus(group.id, group.items, 'En seguimiento')}
-                                        className="text-slate-400 hover:text-slate-600 font-mono text-[11px] underline whitespace-nowrap"
+                                        className="text-slate-400 hover:text-slate-600 font-mono text-[11px] underline whitespace-nowrap cursor-pointer"
                                       >
                                         Reabrir caso
                                       </button>

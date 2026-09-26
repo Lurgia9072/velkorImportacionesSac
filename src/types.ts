@@ -43,10 +43,12 @@ export interface Order {
   selectedQuantity?: number;  // Number of units or boxes chosen
   requestType: 'Compra directa' | 'Consulta' | 'Cotización';
   paymentMethod: '50/50' | '20% adelanto / 80% entrega' | 'Otro';
-  status: 'En seguimiento' | 'Vendido' | 'Despachado' | 'En entrega' | 'En envío' | 'Entregado' | 'Pagado' | 'Rechazado' | 'No pagó' | 'Venta cerrada' | 'No compró';
+  status: 'En seguimiento' | 'Cotizado' | 'Vendido' | 'Despachado' | 'En entrega' | 'En envío' | 'Entregado' | 'Pagado' | 'Rechazado' | 'No pagó' | 'Venta cerrada' | 'No compró';
   paidAmount?: number;        // Paid amount tracked by administrator
   pendingAmount?: number;     // Remaining unpaid balance tracked by administrator
   noPurchaseReason?: string;
+  quotationId?: string;       // Linked quotation document ID
+  quotationNumber?: string;   // Linked quotation number VK-COT-XXXX
   createdAt: string; // ISO string
   orderGroupId?: string;      // Group ID for consolidating checkout items
 }
@@ -81,11 +83,15 @@ export interface QuotationItem {
 
 export type QuotationStatus = 
   | 'Pendiente'
-  | 'Enviada (Falta pagar)'
+  | 'Pagado'
+  | 'Empacando Pedido'
+  | 'Despachado'
+  | 'Entregado'
+  | 'No Concretada'
+  | 'Cancelada'
   | 'Pagada'
   | 'Empacar pedido'
-  | 'Despachado'
-  | 'Cancelada';
+  | 'Enviada (Falta pagar)';
 
 export interface Quotation {
   id?: string;
@@ -113,6 +119,7 @@ export interface Quotation {
 
   // Estado de flujo de trabajo ordenado
   status: QuotationStatus;
+  noPurchaseReason?: string;
   
   // Metadatos y notas
   notes?: string;
@@ -122,5 +129,8 @@ export interface Quotation {
   paidAt?: string;
   packedAt?: string;
   dispatchedAt?: string;
+  deliveredAt?: string;
+  originOrderId?: string;
+  originOrderGroupId?: string;
 }
 
