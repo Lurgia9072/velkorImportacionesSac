@@ -75,7 +75,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToCatalog, initial
 
   // Admin Inventory Pagination States
   const [adminCurrentPage, setAdminCurrentPage] = useState<number>(1);
-  const [adminPageSize, setAdminPageSize] = useState<number>(15);
+  const [adminPageSize, setAdminPageSize] = useState<number>(10);
 
   // CRUD Product Form States
   const [isEditingProduct, setIsEditingProduct] = useState(false);
@@ -1101,7 +1101,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToCatalog, initial
     <div id="admin-panel-container" className="flex flex-col md:flex-row min-h-screen w-full bg-slate-100 text-slate-800">
       
       {/* 1. DESKTOP LEFT SIDEBAR */}
-      <aside className="hidden md:flex flex-col w-64 bg-slate-900 text-slate-200 border-r border-slate-800 p-5 shrink-0 justify-between select-none">
+      <aside className="hidden md:flex flex-col w-64 bg-slate-900 text-slate-200 border-r border-slate-800 p-5 shrink-0 justify-between select-none sticky top-0 h-screen overflow-y-auto z-30">
         <div className="space-y-6">
           {/* Header & Corporate Title */}
           <div className="flex items-center gap-3 pb-5 border-b border-slate-800">
@@ -1153,12 +1153,12 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToCatalog, initial
           </nav>
         </div>
 
-        {/* Administrator Profile Card */}
-        <div className="pt-4 border-t border-slate-800 text-[11px] font-mono space-y-3">
+        {/* Administrator Profile Card & Session Controls */}
+        <div className="pt-4 border-t border-slate-800 text-[11px] font-mono space-y-3 mt-auto">
           <div className="flex items-center justify-between">
             <button 
               onClick={loadData}
-              className="p-1.5 bg-slate-850 hover:bg-slate-800 text-slate-200 border border-slate-750 rounded-lg transition-colors flex items-center gap-1 text-[10px] font-bold"
+              className="p-1.5 bg-slate-850 hover:bg-slate-800 text-slate-200 border border-slate-750 rounded-lg transition-colors flex items-center gap-1 text-[10px] font-bold cursor-pointer"
               title="Sincronizar base de datos"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
@@ -1177,17 +1177,19 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToCatalog, initial
           {onBackToCatalog && (
             <button
               onClick={onBackToCatalog}
-              className="w-full bg-emerald-500 hover:bg-emerald-450 text-slate-950 py-2 rounded-lg text-center text-xs font-mono font-black transition-all flex items-center justify-center gap-1.5 shadow-sm"
+              className="w-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 py-2 rounded-lg text-center text-xs font-mono font-black transition-all flex items-center justify-center gap-1.5 shadow-sm cursor-pointer"
             >
               <ArrowLeft className="w-3.5 h-3.5" />
               Volver al Catálogo
             </button>
           )}
           <button
+            id="btn-sidebar-logout"
             onClick={() => setIsAuthenticated(false)}
-            className="w-full bg-slate-800/50 hover:bg-rose-600/30 hover:text-rose-400 border border-slate-850 hover:border-rose-900 text-slate-400 py-1.5 rounded-md text-center text-[10px] font-bold transition-all"
+            className="w-full bg-rose-950/40 hover:bg-rose-600 text-rose-300 hover:text-white border border-rose-800/60 hover:border-rose-600 py-2 rounded-lg text-center text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
           >
-            Cerrar Sesión Admin
+            <Lock className="w-3.5 h-3.5" />
+            <span>Cerrar Sesión</span>
           </button>
         </div>
       </aside>
@@ -1217,10 +1219,12 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToCatalog, initial
               <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
             </button>
             <button
+              id="btn-mobile-logout"
               onClick={() => setIsAuthenticated(false)}
-              className="text-[10px] font-mono text-slate-400 hover:text-white font-bold bg-slate-800 px-2.5 py-1 rounded-md"
+              className="text-[10px] font-mono text-rose-300 hover:text-white font-bold bg-rose-950/60 border border-rose-800/60 px-2.5 py-1 rounded-md flex items-center gap-1"
             >
-              Salir
+              <Lock className="w-3 h-3" />
+              Cerrar Sesión
             </button>
           </div>
         </div>
@@ -1258,6 +1262,44 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToCatalog, initial
 
       {/* 3. MAIN DASHBOARD AREA */}
       <div className="flex-1 flex flex-col min-h-screen overflow-hidden">
+        
+        {/* Top Header Bar for Desktop with always-visible Cerrar Sesión button */}
+        <header className="hidden md:flex items-center justify-between px-6 py-3 bg-white border-b border-slate-200 sticky top-0 z-30 shadow-2xs">
+          <div className="flex items-center gap-3">
+            <span className="font-display font-black text-sm text-slate-800 tracking-tight uppercase">
+              {activeTab === 'quotations' && 'Gestión y Creación de Cotizaciones (PDF)'}
+              {activeTab === 'orders' && 'Bandeja de Pedidos Registrados'}
+              {activeTab === 'inventory' && 'Catálogo de Repuestos Disponibles (CRUD)'}
+              {activeTab === 'metrics' && 'Métricas y Estadísticas de Ventas'}
+              {activeTab === 'loyal_clients' && 'Directorio de Clientes Frecuentes'}
+              {activeTab === 'lost_clients' && 'Historial de Clientes "No Compraron"'}
+              {activeTab === 'settings' && 'Personalización de Tienda (Logo / Banner)'}
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2.5 font-mono text-xs">
+            {onBackToCatalog && (
+              <button
+                type="button"
+                onClick={onBackToCatalog}
+                className="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-bold flex items-center gap-1.5 transition-colors cursor-pointer border border-slate-200"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" />
+                <span>Volver a la Tienda</span>
+              </button>
+            )}
+            <button
+              id="btn-topbar-logout"
+              type="button"
+              onClick={() => setIsAuthenticated(false)}
+              className="px-3.5 py-1.5 bg-rose-50 hover:bg-rose-600 text-rose-700 hover:text-white border border-rose-200 hover:border-rose-600 rounded-lg font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
+              title="Cerrar sesión del panel de administración"
+            >
+              <Lock className="w-3.5 h-3.5" />
+              <span>Cerrar Sesión</span>
+            </button>
+          </div>
+        </header>
         
         <main className="flex-1 p-4 md:p-6 space-y-6 overflow-y-auto max-w-7xl w-full mx-auto pb-16">
           {loading ? (
@@ -2096,23 +2138,64 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToCatalog, initial
                     </button>
                   )}
                 </div>
-                <div className="text-[11px] text-slate-400 font-mono sm:ml-auto flex flex-col sm:flex-row items-end sm:items-center gap-1 sm:gap-3">
+                <div className="text-[11px] text-slate-500 font-mono sm:ml-auto flex flex-wrap items-center justify-end gap-2 sm:gap-3">
                   <div className="flex items-center gap-1.5">
-                    <span>Total en BD:</span>
-                    <strong className="text-slate-800">{products.length}</strong>
+                    <span className="text-slate-400">Total en BD:</span>
+                    <strong className="text-slate-800 font-bold">{products.length}</strong>
                     <span className="inline-flex items-center gap-1 text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-sm text-[10px] font-bold">
                       Listo
                     </span>
                   </div>
                   <span className="hidden sm:inline-block text-slate-300">|</span>
                   <div>
-                    Filtrados: <strong className="text-slate-800">{filteredAdminProducts.length}</strong> repuestos
+                    <span className="text-slate-400">Filtrados:</span> <strong className="text-slate-800 font-bold">{filteredAdminProducts.length}</strong> repuestos
                   </div>
+
                   {filteredAdminProducts.length > 0 && (
                     <>
                       <span className="hidden sm:inline-block text-slate-300">|</span>
-                      <div className="text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200/50">
-                        Pág. {safeAdminCurrentPage} de {adminTotalPages}
+                      {/* Top Page Size Selector */}
+                      <div className="flex items-center gap-1 bg-slate-50 px-2 py-1 rounded-lg border border-slate-200">
+                        <span className="text-slate-400 text-[10px]">Por pág:</span>
+                        {[10, 20, 50, 100].map(sz => (
+                          <button
+                            key={`top-sz-${sz}`}
+                            type="button"
+                            onClick={() => setAdminPageSize(sz)}
+                            className={`px-1.5 py-0.5 rounded text-[10px] font-bold transition-all cursor-pointer ${
+                              adminPageSize === sz 
+                                ? 'bg-slate-900 text-white' 
+                                : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'
+                            }`}
+                          >
+                            {sz}
+                          </button>
+                        ))}
+                      </div>
+
+                      {/* Top Page Navigator */}
+                      <div className="flex items-center gap-1 bg-emerald-50 text-emerald-800 px-2 py-1 rounded-lg border border-emerald-200 font-bold">
+                        <button
+                          type="button"
+                          onClick={() => handleAdminPageChange(safeAdminCurrentPage - 1)}
+                          disabled={safeAdminCurrentPage === 1}
+                          className="p-0.5 rounded hover:bg-emerald-200 disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
+                          title="Página anterior"
+                        >
+                          <ChevronLeft className="w-3.5 h-3.5" />
+                        </button>
+                        <span className="text-[11px] px-1 font-bold">
+                          Pág. {safeAdminCurrentPage} de {adminTotalPages}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleAdminPageChange(safeAdminCurrentPage + 1)}
+                          disabled={safeAdminCurrentPage === adminTotalPages}
+                          className="p-0.5 rounded hover:bg-emerald-200 disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
+                          title="Página siguiente"
+                        >
+                          <ChevronRight className="w-3.5 h-3.5" />
+                        </button>
                       </div>
                     </>
                   )}
@@ -2249,7 +2332,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToCatalog, initial
                       </span>
                       <div className="flex items-center gap-1.5 ml-2">
                         <span className="text-slate-400 text-[11px]">Por pág:</span>
-                        {[15, 30, 50, 100].map(sz => (
+                        {[10, 20, 50, 100].map(sz => (
                           <button
                             key={sz}
                             onClick={() => setAdminPageSize(sz)}
