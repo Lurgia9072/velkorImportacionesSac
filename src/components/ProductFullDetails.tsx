@@ -21,6 +21,7 @@ import { incrementProductView } from '../firebase';
 interface ProductFullDetailsProps {
   product: Product;
   allProducts: Product[];
+  hidePrices?: boolean;
   onClose: () => void;
   onOrder: (product: Product, quantity: number, unitType?: 'unidades' | 'cajas', unitQuantity?: number) => void;
   onSelectProduct: (product: Product) => void;
@@ -29,6 +30,7 @@ interface ProductFullDetailsProps {
 export const ProductFullDetails: React.FC<ProductFullDetailsProps> = ({
   product,
   allProducts,
+  hidePrices = true,
   onClose,
   onOrder,
   onSelectProduct
@@ -261,22 +263,42 @@ export const ProductFullDetails: React.FC<ProductFullDetailsProps> = ({
           <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 md:p-5 space-y-4 shadow-3xs">
             
             {/* Wholesale vs Retail pricing banner */}
-            <div className="grid grid-cols-2 gap-4 divide-x divide-slate-200">
-              <div className="text-center sm:text-left">
-                <span className="text-[10px] font-mono text-slate-400 uppercase tracking-wider block font-bold">Precio Mayorista *</span>
-                <span className="text-xl font-display font-black text-slate-900 block mt-1">
-                  S/. {(product.wholesalePrice || product.price || 0).toFixed(2)}
+            {hidePrices || product.showPrice === false ? (
+              <div className="bg-emerald-50/80 border border-emerald-200 rounded-xl p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <span className="text-[10px] font-mono text-emerald-800 uppercase tracking-wider block font-bold">
+                    Precios Mayoristas y Minoristas
+                  </span>
+                  <span className="text-xl font-display font-black text-slate-900 block mt-0.5">
+                    Precio a Cotizar
+                  </span>
+                  <span className="text-[11px] text-slate-500 font-mono block mt-0.5">
+                    Descuentos preferenciales de importación directa según volumen de pedido.
+                  </span>
+                </div>
+                <span className="inline-flex items-center gap-1.5 text-xs font-mono font-bold text-emerald-800 bg-white border border-emerald-200 px-3 py-1.5 rounded-lg self-start sm:self-center shadow-3xs">
+                  <CheckCircle className="w-3.5 h-3.5 text-emerald-500" />
+                  Cotización Inmediata
                 </span>
-                <span className="text-[10px] text-slate-400 block font-mono mt-0.5">Por caja o volumen</span>
               </div>
-              <div className="pl-4 text-center sm:text-left">
-                <span className="text-[10px] font-mono text-slate-400 uppercase tracking-wider block font-bold">Precio Minorista</span>
-                <span className="text-xl font-display font-black text-emerald-600 block mt-1">
-                  S/. {(product.retailPrice || product.price || 0).toFixed(2)}
-                </span>
-                <span className="text-[10px] text-slate-400 block font-mono mt-0.5">Por unidades sueltas</span>
+            ) : (
+              <div className="grid grid-cols-2 gap-4 divide-x divide-slate-200">
+                <div className="text-center sm:text-left">
+                  <span className="text-[10px] font-mono text-slate-400 uppercase tracking-wider block font-bold">Precio Mayorista *</span>
+                  <span className="text-xl font-display font-black text-slate-900 block mt-1">
+                    S/. {(product.wholesalePrice || product.price || 0).toFixed(2)}
+                  </span>
+                  <span className="text-[10px] text-slate-400 block font-mono mt-0.5">Por caja o volumen</span>
+                </div>
+                <div className="pl-4 text-center sm:text-left">
+                  <span className="text-[10px] font-mono text-slate-400 uppercase tracking-wider block font-bold">Precio Minorista</span>
+                  <span className="text-xl font-display font-black text-emerald-600 block mt-1">
+                    S/. {(product.retailPrice || product.price || 0).toFixed(2)}
+                  </span>
+                  <span className="text-[10px] text-slate-400 block font-mono mt-0.5">Por unidades sueltas</span>
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Toggle buying by Units or by Boxes */}
             {product.unitsPerBox && product.unitsPerBox > 0 && (
@@ -440,10 +462,18 @@ export const ProductFullDetails: React.FC<ProductFullDetailsProps> = ({
                 </div>
 
                 <div className="pt-2 border-t border-slate-100 mt-2 flex items-center justify-between">
-                  <span className="text-[10px] font-mono text-slate-400">Por Mayor</span>
-                  <span className="font-mono text-xs font-black text-slate-900">
-                    S/. {(p.wholesalePrice || p.price || 0).toFixed(2)}
-                  </span>
+                  {hidePrices || p.showPrice === false ? (
+                    <span className="text-[10px] font-mono text-emerald-800 bg-emerald-50 border border-emerald-200/70 px-2 py-0.5 rounded font-bold">
+                      Precio a cotizar
+                    </span>
+                  ) : (
+                    <>
+                      <span className="text-[10px] font-mono text-slate-400">Por Mayor</span>
+                      <span className="font-mono text-xs font-black text-slate-900">
+                        S/. {(p.wholesalePrice || p.price || 0).toFixed(2)}
+                      </span>
+                    </>
+                  )}
                 </div>
               </div>
             ))}

@@ -5,11 +5,12 @@ import { incrementProductView } from '../firebase';
 
 interface ProductDetailsModalProps {
   product: Product;
+  hidePrices?: boolean;
   onClose: () => void;
   onOrder: (product: Product, quantity: number) => void;
 }
 
-export const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({ product, onClose, onOrder }) => {
+export const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({ product, hidePrices = true, onClose, onOrder }) => {
   const [quantity, setQuantity] = useState(1);
   const images = product.imageUrls && product.imageUrls.length > 0 ? product.imageUrls : [product.imageUrl];
   const [activeImage, setActiveImage] = useState(images[0] || product.imageUrl);

@@ -4,11 +4,12 @@ import { ShoppingCart } from 'lucide-react';
 
 interface ProductCardProps {
   product: Product;
+  hidePrices?: boolean;
   onSelect: (product: Product) => void;
   onAddToCart: (product: Product, quantity: number, unitType?: 'unidades' | 'cajas', unitQuantity?: number) => void;
 }
 
-export const ProductCard: React.FC<ProductCardProps> = ({ product, onSelect, onAddToCart }) => {
+export const ProductCard: React.FC<ProductCardProps> = ({ product, hidePrices = true, onSelect, onAddToCart }) => {
   const [cardQuantity, setCardQuantity] = useState(1);
   const [unitType, setUnitType] = useState<'unidades' | 'cajas'>('unidades');
   const [activeImgIdx, setActiveImgIdx] = useState(0);
@@ -151,7 +152,11 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onSelect, onA
 
           {/* Pricing Row */}
           <div className="mt-2 flex items-baseline gap-1.5 flex-wrap">
-            {product.status === 'Promoción' ? (
+            {hidePrices || product.showPrice === false ? (
+              <span className="inline-flex items-center gap-1 text-[11px] font-mono font-bold text-emerald-800 bg-emerald-50 border border-emerald-200/70 px-2 py-0.5 rounded-md">
+                <span>Precio a cotizar</span>
+              </span>
+            ) : product.status === 'Promoción' ? (
               <>
                 <span className="text-sm sm:text-base font-extrabold text-orange-600 font-mono">
                   S/. {product.price.toFixed(2)}

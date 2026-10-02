@@ -67,6 +67,16 @@
         "updatedAt": { "type": "string", "format": "date-time" }
       },
       "required": ["quoteNumber", "customerName", "customerDocNumber", "status", "total"]
+    },
+    "settings": {
+      "title": "StoreSettings",
+      "description": "Configuraciones globales de la tienda (logo, banner, visibilidad de precios)",
+      "type": "object",
+      "properties": {
+        "logoUrl": { "type": "string" },
+        "bannerUrl": { "type": "string" },
+        "hidePrices": { "type": "boolean" }
+      }
     }
   },
   "firestore": {
@@ -81,6 +91,10 @@
     "quotations/{quotationId}": {
       "schema": "quotations",
       "description": "Colección de cotizaciones formales para clientes y mayoristas"
+    },
+    "settings/{settingId}": {
+      "schema": "settings",
+      "description": "Configuraciones globales de la tienda"
     }
   }
 }

@@ -107,6 +107,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToCatalog, initial
   // Store Layout Settings States
   const [storeLogo, setStoreLogo] = useState('');
   const [storeBanner, setStoreBanner] = useState('');
+  const [storeHidePrices, setStoreHidePrices] = useState<boolean>(true); // default true: prices hidden per user request
   const [isSavingSettings, setIsSavingSettings] = useState(false);
 
   // Excel Import States
@@ -301,6 +302,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToCatalog, initial
       if (config) {
         setStoreLogo(config.logoUrl || '');
         setStoreBanner(config.bannerUrl || '');
+        if (config.hidePrices !== undefined) {
+          setStoreHidePrices(config.hidePrices);
+        }
       }
     } catch (err) {
       console.error('Error loading admin data:', err);
@@ -1679,7 +1683,14 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToCatalog, initial
               {/* CRUD Panel controls */}
               <div className="flex justify-between items-center bg-white p-4 rounded-2xl border border-slate-200">
                 <div>
-                  <h3 className="font-display font-extrabold text-base text-slate-900">Catálogo de Repuestos Disponibles</h3>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h3 className="font-display font-extrabold text-base text-slate-900">Catálogo de Repuestos Disponibles</h3>
+                    {storeHidePrices && (
+                      <span className="text-[10px] font-mono font-bold bg-amber-50 text-amber-800 border border-amber-200 px-2 py-0.5 rounded-md flex items-center gap-1 shadow-3xs">
+                        <span>🔒 Precios Ocultos al Público (Modo Cotizar)</span>
+                      </span>
+                    )}
+                  </div>
                   <p className="text-slate-500 text-xs mt-0.5 font-mono">Modifica, elimina o añade nuevos repuestos al catálogo visible para los clientes.</p>
                 </div>
                 {!isEditingProduct && (
@@ -3226,8 +3237,12 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToCatalog, initial
                 e.preventDefault();
                 setIsSavingSettings(true);
                 try {
-                  await updateStoreConfig({ logoUrl: storeLogo, bannerUrl: storeBanner });
-                  alert('¡Configuración guardada con éxito! El logo y el banner se actualizarán instantáneamente para todos los clientes en la tienda virtual.');
+                  await updateStoreConfig({ 
+                    logoUrl: storeLogo, 
+                    bannerUrl: storeBanner,
+                    hidePrices: storeHidePrices 
+                  });
+                  alert('¡Configuración guardada con éxito! La visibilidad de precios, el logo y el banner se actualizarán instantáneamente para todos los clientes en la tienda virtual.');
                 } catch (err) {
                   console.error('Error saving store config:', err);
                   alert('Ocurrió un error al guardar la configuración en la base de datos.');
@@ -3235,6 +3250,50 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToCatalog, initial
                   setIsSavingSettings(false);
                 }
               }} className="space-y-8">
+                
+                {/* Global Price Visibility Mode Switch */}
+                <div className="border border-slate-200 rounded-2xl p-5 bg-gradient-to-r from-slate-50 via-white to-emerald-50/30 shadow-3xs space-y-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="p-1.5 bg-emerald-500/10 text-emerald-600 rounded-lg">
+                          <DollarSign className="w-4 h-4" />
+                        </span>
+                        <h3 className="font-display font-extrabold text-sm text-slate-900">
+                          Visibilidad de Precios en el Catálogo Público
+                        </h3>
+                      </div>
+                      <p className="text-xs text-slate-500 font-mono mt-1 leading-relaxed">
+                        Oculta los precios en soles a los clientes visitantes y activa el <strong>Modo Cotización</strong> en toda la tienda.
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      id="btn-toggle-hide-prices"
+                      onClick={() => setStoreHidePrices(prev => !prev)}
+                      className={`px-4 py-2.5 rounded-xl text-xs font-mono font-bold flex items-center gap-2.5 transition-all cursor-pointer shadow-xs whitespace-nowrap self-start sm:self-auto ${
+                        storeHidePrices 
+                          ? 'bg-amber-500 hover:bg-amber-400 text-slate-950 font-black shadow-amber-500/20' 
+                          : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-500/20'
+                      }`}
+                    >
+                      {storeHidePrices ? <ToggleRight className="w-5 h-5" /> : <ToggleLeft className="w-5 h-5" />}
+                      <span>{storeHidePrices ? '🔒 Precios Ocultos (Activo)' : '👁️ Precios Visibles al Público'}</span>
+                    </button>
+                  </div>
+
+                  <div className="pt-2 border-t border-slate-200/60 flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-[11px] font-mono">
+                    <span className="text-slate-600">
+                      Estado actual: <strong className={storeHidePrices ? 'text-amber-700 font-bold' : 'text-emerald-700 font-bold'}>
+                        {storeHidePrices ? 'OCULTOS («Precio a cotizar» se muestra en tarjetas y fichas)' : 'VISIBLES (Los clientes ven precios en soles)'}
+                      </strong>
+                    </span>
+                    <span className="text-slate-400">
+                      * Tú como administrador siempre puedes ver y editar precios en la pestaña de Productos.
+                    </span>
+                  </div>
+                </div>
                 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                   {/* Logo Config Section */}

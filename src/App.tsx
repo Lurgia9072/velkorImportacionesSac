@@ -41,11 +41,16 @@ export default function App() {
   // Dynamic asset URLs with fallback to local bundled assets
   const [bannerUrl, setBannerUrl] = useState<string>(velkorBannerBgLocal);
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  // Pricing visibility state (default true: prices hidden for now per user request)
+  const [hidePrices, setHidePrices] = useState<boolean>(true);
 
   useEffect(() => {
     // Load store configuration from Firestore first
     getStoreConfig().then(config => {
       if (config) {
+        if (config.hidePrices !== undefined) {
+          setHidePrices(config.hidePrices);
+        }
         if (config.bannerUrl) {
           setBannerUrl(config.bannerUrl);
         } else {
@@ -119,7 +124,7 @@ export default function App() {
 
   const banners = [
     {
-      badge: "🇨🇳 IMPORTACIÓN CHINA DIRECTA",
+      badge: "IMPORTACIÓN CHINA DIRECTA",
       title: "VELKOR IMPORTACIONES",
       desc: "Repuestos y accesorios premium de alta calidad al por mayor y menor.",
       image: bannerUrl,
@@ -501,12 +506,28 @@ export default function App() {
             <ProductFullDetails 
               product={selectedProductDetails}
               allProducts={products}
+              hidePrices={hidePrices}
               onClose={() => setSelectedProductDetails(null)}
               onOrder={handleAddToCart}
               onSelectProduct={setSelectedProductDetails}
             />
           ) : (
             <div id="catalog-view" className="space-y-6 animate-fadeIn">
+
+            {/* Quotation Mode Info Banner when prices are hidden */}
+            {hidePrices && (
+              <div className="flex items-center justify-between flex-wrap gap-2 px-3.5 py-2.5 bg-emerald-50 text-emerald-900 text-xs font-mono rounded-xl border border-emerald-200/80 shadow-3xs">
+                <div className="flex items-center gap-2">
+                  <FileText className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>
+                    <strong>Catálogo en Modo Cotización:</strong> Precios al por mayor y menor disponibles mediante cotización directa y carrito de repuestos.
+                  </span>
+                </div>
+                <span className="text-[10px] bg-white text-emerald-700 font-bold px-2.5 py-0.5 rounded-full border border-emerald-200 shrink-0">
+                  Precios a Cotizar
+                </span>
+              </div>
+            )}
             
             {/* Catalog Filter controls (Search & Filters Row) */}
             <div id="catalog-filters-section" className="bg-white border border-slate-200 rounded-xl p-3 shadow-[0_1px_3px_rgba(0,0,0,0.06)] space-y-3 scroll-mt-24">
@@ -690,6 +711,7 @@ export default function App() {
                     <ProductCard 
                       key={p.id} 
                       product={p} 
+                      hidePrices={hidePrices}
                       onSelect={handleSelectProduct} 
                       onAddToCart={handleAddToCart} 
                     />
@@ -953,8 +975,8 @@ export default function App() {
               <p className="text-neutral-500 text-xs font-sans max-w-sm mx-auto md:mx-0">
                 Tu importador directo de repuestos de calidad premium desde China. Abastecemos al mercado mayorista de motocicletas en todo el Perú con los mejores precios y stock garantizado.
               </p>
-              <p className="text-[10px] text-neutral-600">
-                RUC: 20616309146 — Lima, Perú
+              <p className="text-[10px] text-neutral-400 font-mono">
+                RUC: 20616309146 — Mayorista de Repuestos y Accesorios para Motos
               </p>
             </div>
 

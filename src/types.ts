@@ -66,6 +66,7 @@ export const CATEGORIES = [
 export interface StoreConfig {
   logoUrl?: string;
   bannerUrl?: string;
+  hidePrices?: boolean; // When true, prices are hidden on the public catalog and replaced with "Precio a cotizar"
 }
 
 export interface QuotationItem {
