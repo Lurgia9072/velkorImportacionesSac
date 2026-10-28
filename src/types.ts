@@ -53,7 +53,7 @@ export interface Order {
   orderGroupId?: string;      // Group ID for consolidating checkout items
 }
 
-export const CATEGORIES = [
+export const PRIMARY_CATEGORIES = [
   'Motor',
   'Frenos',
   'Transmisión',
@@ -61,6 +61,204 @@ export const CATEGORIES = [
   'Sistema Eléctrico',
   'Suspensiones',
   'Accesorios'
+] as const;
+
+export interface CategoryGroup {
+  group: string;
+  categories: string[];
+}
+
+export const CATEGORY_GROUPS: CategoryGroup[] = [
+  {
+    group: 'Repuestos de Motor & Rendimiento',
+    categories: [
+      'Motor',
+      'Motor & Partes Internas',
+      'Cilindros, Pistones & Anillos',
+      'Culata, Válvulas & Balancines',
+      'Carburadores, Toberas & Admisión',
+      'Embrague & Discos de Clutch',
+      'Transmisión, Cadenas & Kit de Arrastre',
+      'Transmisión',
+      'Bombas de Aceite & Lubricación',
+      'Empaquetaduras, Retenes & Sellos',
+      'Cigüeñales, Bielas & Rodamientos',
+      'Arrancadores, Bendix & Piñones de Arranque',
+      'Filtros de Aire, Aceite & Gasolina'
+    ]
+  },
+  {
+    group: 'Sistema Eléctrico & Encendido',
+    categories: [
+      'Sistema Eléctrico',
+      'Sistema Eléctrico & Encendido',
+      'CDI, Bobinas de Alta & Reguladores',
+      'Estatores, Magnetos & Platos de Bobina',
+      'Baterías de Moto',
+      'Bujías & Capuchones',
+      'Faros Principales, Focos LED & Neblineros',
+      'Stops Traseros & Luces de Cola',
+      'Direccionales & Luces de Señalización',
+      'Velocímetros, Tacómetros & Tableros',
+      'Switches, Chapas de Contacto & Comandos',
+      'Bocinas & Claxon'
+    ]
+  },
+  {
+    group: 'Frenos & Control',
+    categories: [
+      'Frenos',
+      'Frenos (Pastillas, Discos & Zapatas)',
+      'Bombas de Freno, Calipers & Mangueras Hidráulicas',
+      'Cables (Acelerador, Embrague, Freno, Velocímetro)',
+      'Manetas, Manijas & Bombas de Embrague',
+      'Timones, Manubrios & Puños'
+    ]
+  },
+  {
+    group: 'Suspensión, Dirección & Chasis',
+    categories: [
+      'Suspensiones',
+      'Suspensiones Traseras & Amortiguadores',
+      'Barras Telescópicas, Botellas & Retenes de Barra',
+      'Cunas de Dirección, Rodajes & Ejes',
+      'Chasis, Carenados, Tapas Laterales & Plásticos',
+      'Guardabarros Delanteros & Traseros',
+      'Máscaras de Faro & Cúpulas',
+      'Asientos, Fundas & Cojines',
+      'Tanques de Combustible, Tapas & Grifos',
+      'Tubos de Escape, Silenciadores & Muflas'
+    ]
+  },
+  {
+    group: 'Llantas, Cámaras & Aros',
+    categories: [
+      'Llantas & Cámaras',
+      'Llantas de Moto (Pistera, Mixta, Cross)',
+      'Cámaras de Aire & Protectores de Aro',
+      'Aros de Aleación & Rayos',
+      'Mazas, Ejes & Rodajes de Rueda'
+    ]
+  },
+  {
+    group: 'Accesorios & Equipamiento de Motos',
+    categories: [
+      'Accesorios',
+      'Accesorios & Equipamiento',
+      'Cascos (Integrales, Abiertos, Modulares & Cross)',
+      'Visores, Micas & Pines para Casco',
+      'Guantes de Protección para Motociclista',
+      'Rodilleras, Coderas & Pecheras de Seguridad',
+      'Casacas, Chaquetas & Chalecos Reflectivos',
+      'Ponchos & Trajes Impermeables para Lluvia',
+      'Maletas, Alforjas & Cajas de Delivery',
+      'Baúles & Maleteros Traseros',
+      'Soportes para Celular & GPS para Moto',
+      'Cargadores USB, Tomas 12V & Voltímetros',
+      'Alarmas con Sensor de Golpe & Controles',
+      'Candados de Disco con Alarma & Cadenas de Seguridad',
+      'Rastreadores GPS para Motos',
+      'Defensas de Motor, Mataperros & Jaulas',
+      'Sliders de Protección Anti-Caídas',
+      'Espejos Retrovisores (Originales & Deportivos)',
+      'Paradores Laterales, Caballetes & Patas de Apoyo',
+      'Pedales de Cambio, Freno & Estribos (Pedalines)',
+      'Parabrisas, Cúpulas & Cortavientos',
+      'Fundas Protectoras Impermeables para Moto',
+      'Herramientas de Mecánica & Llaves de Taller',
+      'Extractores de Volante & Herramientas Especiales',
+      'Aceites de Motor 4T / 2T & Lubricantes',
+      'Lubricantes de Cadena & Grasas Especiales',
+      'Líquidos de Freno, Refrigerantes & Químicos'
+    ]
+  }
+];
+
+export const CATEGORIES = [
+  // --- REPUESTOS DE MOTOR Y RENDIMIENTO ---
+  'Motor',
+  'Motor & Partes Internas',
+  'Cilindros, Pistones & Anillos',
+  'Culata, Válvulas & Balancines',
+  'Carburadores, Toberas & Admisión',
+  'Embrague & Discos de Clutch',
+  'Transmisión, Cadenas & Kit de Arrastre',
+  'Transmisión',
+  'Bombas de Aceite & Lubricación',
+  'Empaquetaduras, Retenes & Sellos',
+  'Cigüeñales, Bielas & Rodamientos',
+  'Arrancadores, Bendix & Piñones de Arranque',
+  'Filtros de Aire, Aceite & Gasolina',
+
+  // --- SISTEMA ELÉCTRICO, ENCENDIDO Y LUCES ---
+  'Sistema Eléctrico',
+  'Sistema Eléctrico & Encendido',
+  'CDI, Bobinas de Alta & Reguladores',
+  'Estatores, Magnetos & Platos de Bobina',
+  'Baterías de Moto',
+  'Bujías & Capuchones',
+  'Faros Principales, Focos LED & Neblineros',
+  'Stops Traseros & Luces de Cola',
+  'Direccionales & Luces de Señalización',
+  'Velocímetros, Tacómetros & Tableros',
+  'Switches, Chapas de Contacto & Comandos',
+  'Bocinas & Claxon',
+
+  // --- FRENOS Y CONTROL ---
+  'Frenos',
+  'Frenos (Pastillas, Discos & Zapatas)',
+  'Bombas de Freno, Calipers & Mangueras Hidráulicas',
+  'Cables (Acelerador, Embrague, Freno, Velocímetro)',
+  'Manetas, Manijas & Bombas de Embrague',
+  'Timones, Manubrios & Puños',
+
+  // --- SUSPENSIÓN, DIRECCIÓN Y CHASIS ---
+  'Suspensiones',
+  'Suspensiones Traseras & Amortiguadores',
+  'Barras Telescópicas, Botellas & Retenes de Barra',
+  'Cunas de Dirección, Rodajes & Ejes',
+  'Chasis, Carenados, Tapas Laterales & Plásticos',
+  'Guardabarros Delanteros & Traseros',
+  'Máscaras de Faro & Cúpulas',
+  'Asientos, Fundas & Cojines',
+  'Tanques de Combustible, Tapas & Grifos',
+  'Tubos de Escape, Silenciadores & Muflas',
+
+  // --- RUEDAS, LLANTAS Y ARRASTRE ---
+  'Llantas & Cámaras',
+  'Llantas de Moto (Pistera, Mixta, Cross)',
+  'Cámaras de Aire & Protectores de Aro',
+  'Aros de Aleación & Rayos',
+  'Mazas, Ejes & Rodajes de Rueda',
+
+  // --- ACCESORIOS Y EQUIPAMIENTO DE MOTOS ---
+  'Accesorios',
+  'Accesorios & Equipamiento',
+  'Cascos (Integrales, Abiertos, Modulares & Cross)',
+  'Visores, Micas & Pines para Casco',
+  'Guantes de Protección para Motociclista',
+  'Rodilleras, Coderas & Pecheras de Seguridad',
+  'Casacas, Chaquetas & Chalecos Reflectivos',
+  'Ponchos & Trajes Impermeables para Lluvia',
+  'Maletas, Alforjas & Cajas de Delivery',
+  'Baúles & Maleteros Traseros',
+  'Soportes para Celular & GPS para Moto',
+  'Cargadores USB, Tomas 12V & Voltímetros',
+  'Alarmas con Sensor de Golpe & Controles',
+  'Candados de Disco con Alarma & Cadenas de Seguridad',
+  'Rastreadores GPS para Motos',
+  'Defensas de Motor, Mataperros & Jaulas',
+  'Sliders de Protección Anti-Caídas',
+  'Espejos Retrovisores (Originales & Deportivos)',
+  'Paradores Laterales, Caballetes & Patas de Apoyo',
+  'Pedales de Cambio, Freno & Estribos (Pedalines)',
+  'Parabrisas, Cúpulas & Cortavientos',
+  'Fundas Protectoras Impermeables para Moto',
+  'Herramientas de Mecánica & Llaves de Taller',
+  'Extractores de Volante & Herramientas Especiales',
+  'Aceites de Motor 4T / 2T & Lubricantes',
+  'Lubricantes de Cadena & Grasas Especiales',
+  'Líquidos de Freno, Refrigerantes & Químicos'
 ] as const;
 
 export interface StoreConfig {

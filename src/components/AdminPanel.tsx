@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Product, Order, CATEGORIES, Quotation, QuotationItem } from '../types';
+import { Product, Order, CATEGORIES, PRIMARY_CATEGORIES, CATEGORY_GROUPS, Quotation, QuotationItem } from '../types';
 import { 
   getProducts, 
   createProduct, 
@@ -85,6 +85,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToCatalog, initial
   const [prodPrice, setProdPrice] = useState(0);
   const [prodShowPrice, setProdShowPrice] = useState(true);
   const [prodCategory, setProdCategory] = useState<string>(CATEGORIES[0]);
+  const [isCustomCategory, setIsCustomCategory] = useState(false);
   const [prodStatus, setProdStatus] = useState<Product['status']>('Catálogo general');
   const [prodDescription, setProdDescription] = useState('');
   const [prodStock, setProdStock] = useState(10);
@@ -239,6 +240,29 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToCatalog, initial
 
   // Filtering inventory lists
   const [inventoryFilterStatus, setInventoryFilterStatus] = useState<string>('Todos');
+
+  // Dynamic list of categories (merging base CATEGORIES + any existing categories from products)
+  const allCategoryOptions = useMemo(() => {
+    const set = new Set<string>(CATEGORIES);
+    products.forEach(p => {
+      if (p.category && p.category.trim()) {
+        set.add(p.category.trim());
+      }
+    });
+    return Array.from(set);
+  }, [products]);
+
+  // Custom categories registered in products that aren't in base CATEGORIES
+  const customCategories = useMemo(() => {
+    const predefined = new Set<string>(CATEGORIES);
+    const custom = new Set<string>();
+    products.forEach(p => {
+      if (p.category && p.category.trim() && !predefined.has(p.category.trim())) {
+        custom.add(p.category.trim());
+      }
+    });
+    return Array.from(custom);
+  }, [products]);
 
   // Reset admin inventory pagination on filter/query changes
   useEffect(() => {
@@ -492,6 +516,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToCatalog, initial
     setProdPrice(0);
     setProdShowPrice(true);
     setProdCategory(CATEGORIES[0]);
+    setIsCustomCategory(false);
     setProdStatus('Catálogo general');
     setProdDescription('');
     setProdStock(10);
@@ -514,6 +539,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToCatalog, initial
     setProdPrice(p.price);
     setProdShowPrice(p.showPrice);
     setProdCategory(p.category);
+    setIsCustomCategory(!(CATEGORIES as readonly string[]).includes(p.category));
     setProdStatus(p.status);
     setProdDescription(p.description);
     setProdStock(p.stock || 0);
@@ -1948,19 +1974,71 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToCatalog, initial
                       />
                     </div>
 
-                    {/* Category */}
+                    {/* Category Selection with Custom Input option */}
                     <div>
-                      <label className="block text-xs font-mono uppercase text-slate-500 mb-1">Categoría</label>
-                      <select
-                        id="form-prod-category"
-                        value={prodCategory}
-                        onChange={e => setProdCategory(e.target.value)}
-                        className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 rounded-lg px-3 py-2 text-sm focus:outline-hidden"
-                      >
-                        {CATEGORIES.map(cat => (
-                          <option key={cat} value={cat}>{cat}</option>
-                        ))}
-                      </select>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block text-xs font-mono uppercase text-slate-500 font-bold">
+                          Categoría del Repuesto o Accesorio *
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => setIsCustomCategory(!isCustomCategory)}
+                          className="text-[10px] font-mono text-emerald-600 hover:text-emerald-700 font-bold underline cursor-pointer"
+                        >
+                          {isCustomCategory ? '← Elegir de la lista' : '+ Nueva categoría manual'}
+                        </button>
+                      </div>
+
+                      {isCustomCategory ? (
+                        <div className="relative">
+                          <input 
+                            id="form-prod-custom-category"
+                            type="text"
+                            required
+                            placeholder="Ej: Accesorios & Equipamiento / Suspensión Pro..."
+                            value={prodCategory}
+                            onChange={e => setProdCategory(e.target.value)}
+                            className="w-full bg-slate-50 border border-emerald-400 focus:border-emerald-600 rounded-lg px-3 py-2 text-sm focus:outline-hidden font-medium"
+                          />
+                        </div>
+                      ) : (
+                        <select
+                          id="form-prod-category"
+                          value={prodCategory}
+                          onChange={e => {
+                            if (e.target.value === '__custom__') {
+                              setIsCustomCategory(true);
+                              setProdCategory('');
+                            } else {
+                              setProdCategory(e.target.value);
+                            }
+                          }}
+                          className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 rounded-lg px-3 py-2 text-sm focus:outline-hidden font-medium text-slate-800"
+                        >
+                          <optgroup label="⭐ ── Categorías Principales ──">
+                            {PRIMARY_CATEGORIES.map(cat => (
+                              <option key={cat} value={cat}>{cat}</option>
+                            ))}
+                          </optgroup>
+                          {CATEGORY_GROUPS.map(grp => (
+                            <optgroup key={grp.group} label={`── ${grp.group} ──`}>
+                              {grp.categories
+                                .filter(c => !(PRIMARY_CATEGORIES as readonly string[]).includes(c))
+                                .map(cat => (
+                                  <option key={cat} value={cat}>{cat}</option>
+                                ))}
+                            </optgroup>
+                          ))}
+                          {customCategories.length > 0 && (
+                            <optgroup label="── Otras Categorías Guardadas en BD ──">
+                              {customCategories.map(cat => (
+                                <option key={cat} value={cat}>{cat}</option>
+                              ))}
+                            </optgroup>
+                          )}
+                          <option value="__custom__">✍️ + Escribir otra categoría personalizada...</option>
+                        </select>
+                      )}
                     </div>
 
                     {/* Status badge type */}
@@ -2639,8 +2717,19 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToCatalog, initial
                                   onChange={e => setDefaultCategory(e.target.value)}
                                   className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs focus:outline-hidden focus:border-emerald-500 font-bold text-slate-700"
                                 >
-                                  {CATEGORIES.map(cat => (
-                                    <option key={cat} value={cat}>{cat}</option>
+                                  <optgroup label="⭐ Categorías Principales">
+                                    {PRIMARY_CATEGORIES.map(cat => (
+                                      <option key={cat} value={cat}>{cat}</option>
+                                    ))}
+                                  </optgroup>
+                                  {CATEGORY_GROUPS.map(grp => (
+                                    <optgroup key={grp.group} label={grp.group}>
+                                      {grp.categories
+                                        .filter(c => !(PRIMARY_CATEGORIES as readonly string[]).includes(c))
+                                        .map(cat => (
+                                          <option key={cat} value={cat}>{cat}</option>
+                                        ))}
+                                    </optgroup>
                                   ))}
                                 </select>
                               </div>

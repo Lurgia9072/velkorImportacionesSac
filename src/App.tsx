@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Product, CATEGORIES, CartItem } from './types';
-import { getProducts, getStoreConfig } from './firebase';
+import { Product, CATEGORIES, PRIMARY_CATEGORIES, CATEGORY_GROUPS, CartItem } from './types';
+import { getProducts, getProductsPagedFromDB, getStoreConfig } from './firebase';
 import { ProductCard } from './components/ProductCard';
 import { ProductFullDetails } from './components/ProductFullDetails';
 import { ProductDetailsModal } from './components/ProductDetailsModal';
@@ -21,6 +21,7 @@ import {
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
+  ChevronDown,
   Sparkles,
   Flame,
   Calendar,
@@ -124,7 +125,7 @@ export default function App() {
 
   const banners = [
     {
-      badge: "IMPORTACIÓN CHINA DIRECTA",
+      badge: "🇨🇳 IMPORTACIÓN CHINA DIRECTA",
       title: "VELKOR IMPORTACIONES",
       desc: "Repuestos y accesorios premium de alta calidad al por mayor y menor.",
       image: bannerUrl,
@@ -261,24 +262,81 @@ export default function App() {
     }
   };
 
-  // Customer Catalog Pagination State
+  // Customer Catalog Pagination State & DB Paged Products
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [pageSize, setPageSize] = useState<number>(10); // Default to 10 products per page (options: 10, 15, 20)
+  const [totalCount, setTotalCount] = useState<number>(0);
+  const [totalPages, setTotalPages] = useState<number>(1);
+  const [debouncedSearch, setDebouncedSearch] = useState<string>('');
+
+  // Debounce search input by 300ms for smooth typing
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  // Reset to page 1 whenever search, category, status or page size changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [debouncedSearch, selectedCategory, selectedStatus, pageSize]);
+
+  // Fetch only the 10 products for the current page directly from the database
+  const fetchCurrentPage = async (pageToFetch = currentPage) => {
+    setLoading(true);
+    try {
+      const res = await getProductsPagedFromDB({
+        page: pageToFetch,
+        pageSize,
+        category: selectedCategory,
+        status: selectedStatus,
+        searchQuery: debouncedSearch
+      });
+      setProducts(res.products);
+      setTotalCount(res.totalCount);
+      setTotalPages(res.totalPages);
+    } catch (err) {
+      console.error("Error loading products from DB:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchProds = async () => {
+    let isCancelled = false;
+    const load = async () => {
       setLoading(true);
       try {
-        const data = await getProducts();
-        setProducts(data);
+        const res = await getProductsPagedFromDB({
+          page: currentPage,
+          pageSize,
+          category: selectedCategory,
+          status: selectedStatus,
+          searchQuery: debouncedSearch
+        });
+        if (!isCancelled) {
+          setProducts(res.products);
+          setTotalCount(res.totalCount);
+          setTotalPages(res.totalPages);
+        }
       } catch (err) {
-        console.error("Error fetching products:", err);
+        console.error("Error loading products from DB:", err);
       } finally {
-        setLoading(false);
+        if (!isCancelled) {
+          setLoading(false);
+        }
       }
     };
-    fetchProds();
 
+    load();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [currentPage, pageSize, selectedCategory, selectedStatus, debouncedSearch]);
+
+  useEffect(() => {
     // Load local history
     const history = JSON.parse(localStorage.getItem('velkor_local_orders') || '[]');
     setLocalHistory(history);
@@ -302,45 +360,16 @@ export default function App() {
   const handleOrderSuccess = () => {
     setSelectedProductForOrder(null);
     refreshLocalHistory();
-    // Refresh products to reload stock values and sales counters
-    getProducts(true).then(setProducts);
+    // Refresh current page products
+    fetchCurrentPage();
   };
 
-  // Reset to page 1 whenever any filter or page size changes
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchQuery, selectedCategory, selectedStatus, pageSize]);
+  // Complete list of categories for public catalog filter
+  const catalogCategories = useMemo(() => {
+    return CATEGORIES as readonly string[];
+  }, []);
 
-  // Filters logic - client catalog views (memoized for instantaneous responsiveness)
-  const filteredProducts = useMemo(() => {
-    return products.filter(p => {
-      // Hide 'Agotado' marked products completely from public customer catalog
-      if (p.status === 'Agotado') {
-        return false;
-      }
-
-      const q = searchQuery.toLowerCase().trim();
-      const matchesSearch = !q || 
-                            (p.name || '').toLowerCase().includes(q) || 
-                            (p.description || '').toLowerCase().includes(q) ||
-                            (p.category || '').toLowerCase().includes(q) ||
-                            (p.code || '').toLowerCase().includes(q) ||
-                            (p.brand || '').toLowerCase().includes(q);
-      const matchesCategory = selectedCategory === 'Todos' || p.category === selectedCategory;
-      const matchesStatus = selectedStatus === 'Todos' || p.status === selectedStatus;
-      
-      return matchesSearch && matchesCategory && matchesStatus;
-    });
-  }, [products, searchQuery, selectedCategory, selectedStatus]);
-
-  // Pagination calculations
-  const totalPages = Math.max(1, Math.ceil(filteredProducts.length / pageSize));
-  const safeCurrentPage = Math.min(Math.max(1, currentPage), totalPages);
-  const startIndex = (safeCurrentPage - 1) * pageSize;
-  const endIndex = Math.min(startIndex + pageSize, filteredProducts.length);
-  const pagedProducts = useMemo(() => {
-    return filteredProducts.slice(startIndex, endIndex);
-  }, [filteredProducts, startIndex, endIndex]);
+  const isPrimaryCategory = (cat: string) => cat === 'Todos' || (PRIMARY_CATEGORIES as readonly string[]).includes(cat);
 
   const handlePageChange = (newPage: number) => {
     const targetPage = Math.max(1, Math.min(newPage, totalPages));
@@ -354,7 +383,7 @@ export default function App() {
   if (activeView === 'admin') {
     return (
       <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col">
-        <AdminPanel />
+        <AdminPanel onBackToCatalog={() => setActiveView('catalog')} initialTab="quotations" />
         
         {/* Render modal overlays for admin just in case */}
         {selectedProductDetails && (
@@ -406,7 +435,7 @@ export default function App() {
               <button 
                 id="nav-catalog-desktop"
                 onClick={() => handleNavigate('catalog')}
-                className={`px-4 py-2 rounded-md transition-all flex items-center gap-1.5 ${activeView === 'catalog' ? 'bg-emerald-500 text-slate-950' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'}`}
+                className={`px-4 py-2 rounded-md transition-all flex items-center gap-1.5 ${activeView === 'catalog' ? 'bg-emerald-500 text-slate-950 font-black' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'}`}
               >
                 <BookOpen className="w-4 h-4" />
                 Catálogo de Repuestos
@@ -414,7 +443,7 @@ export default function App() {
               <button 
                 id="nav-history-desktop"
                 onClick={() => { handleNavigate('history'); refreshLocalHistory(); }}
-                className={`px-4 py-2 rounded-md transition-all flex items-center gap-1.5 ${activeView === 'history' ? 'bg-emerald-500 text-slate-950' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'}`}
+                className={`px-4 py-2 rounded-md transition-all flex items-center gap-1.5 ${activeView === 'history' ? 'bg-emerald-500 text-slate-950 font-black' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'}`}
               >
                 <ClipboardList className="w-4 h-4" />
                 Mis Pedidos
@@ -583,15 +612,16 @@ export default function App() {
                 </div>
               </div>
  
-              {/* Categories Navigation Badges - Scroll horizontal in mobile without wrap */}
+              {/* Categories Navigation Badges - 8 Primary Categories + Combo Selector for More */}
               <div className="border-t border-slate-100 pt-2 flex items-center w-full overflow-hidden">
                 <span className="text-[10px] font-mono uppercase tracking-wider text-slate-400 mr-2 shrink-0 hidden sm:inline-block">Categorías:</span>
                 
                 <div className="flex overflow-x-auto whitespace-nowrap scrollbar-none pb-0.5 gap-1.5 w-full md:flex-wrap items-center">
+                  {/* 1. Ver Todo */}
                   <button
                     id="category-all-btn"
                     onClick={() => setSelectedCategory('Todos')}
-                    className={`px-2.5 py-1 rounded-full text-[11px] font-bold transition-all whitespace-nowrap ${
+                    className={`px-2.5 py-1 rounded-full text-[11px] font-bold transition-all whitespace-nowrap cursor-pointer ${
                       selectedCategory === 'Todos'
                         ? 'bg-emerald-600 text-white shadow-xs'
                         : 'bg-slate-100 hover:bg-slate-200 text-slate-600'
@@ -599,12 +629,14 @@ export default function App() {
                   >
                     Ver Todo
                   </button>
-                  {CATEGORIES.map(cat => (
+
+                  {/* 2. Top Primary Categories (Motor, Frenos, Transmisión, Llantas & Cámaras, Sistema Eléctrico, Suspensiones, Accesorios) */}
+                  {PRIMARY_CATEGORIES.map(cat => (
                     <button
                       id={`category-btn-${cat}`}
                       key={cat}
                       onClick={() => setSelectedCategory(cat)}
-                      className={`px-2.5 py-1 rounded-full text-[11px] font-bold transition-all whitespace-nowrap ${
+                      className={`px-2.5 py-1 rounded-full text-[11px] font-bold transition-all whitespace-nowrap cursor-pointer ${
                         selectedCategory === cat
                           ? 'bg-emerald-600 text-white shadow-xs'
                           : 'bg-slate-100 hover:bg-slate-200 text-slate-600'
@@ -613,6 +645,51 @@ export default function App() {
                       {cat}
                     </button>
                   ))}
+
+                  {/* 3. Combo dropdown for "Ver más..." with all other categories */}
+                  <div className="relative inline-flex items-center">
+                    <select
+                      id="category-more-select"
+                      value={isPrimaryCategory(selectedCategory) ? '' : selectedCategory}
+                      onChange={e => {
+                        if (e.target.value) {
+                          setSelectedCategory(e.target.value);
+                        }
+                      }}
+                      className={`pl-3 pr-7 py-1 rounded-full text-[11px] font-bold appearance-none transition-all cursor-pointer border ${
+                        !isPrimaryCategory(selectedCategory)
+                          ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
+                          : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200/80'
+                      }`}
+                    >
+                      <option value="" disabled={!isPrimaryCategory(selectedCategory)}>
+                        {!isPrimaryCategory(selectedCategory) ? `📂 ${selectedCategory}` : '▾ Más categorías...'}
+                      </option>
+                      {CATEGORY_GROUPS.map(grp => (
+                        <optgroup key={grp.group} label={`── ${grp.group} ──`}>
+                          {grp.categories
+                            .filter(c => !(PRIMARY_CATEGORIES as readonly string[]).includes(c))
+                            .map(cat => (
+                              <option key={cat} value={cat}>
+                                {cat}
+                              </option>
+                            ))}
+                        </optgroup>
+                      ))}
+                    </select>
+                    <ChevronDown className="w-3 h-3 absolute right-2 pointer-events-none text-current opacity-70" />
+                  </div>
+
+                  {/* Clear button if a subcategory from the combo is active */}
+                  {!isPrimaryCategory(selectedCategory) && (
+                    <button
+                      onClick={() => setSelectedCategory('Todos')}
+                      title="Quitar filtro de categoría y ver todo"
+                      className="w-5 h-5 rounded-full bg-slate-200 hover:bg-rose-100 hover:text-rose-600 text-slate-600 flex items-center justify-center text-xs transition-colors cursor-pointer"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
@@ -621,10 +698,10 @@ export default function App() {
             <div id="catalog-products-container" className="scroll-mt-24">
               <div className="flex flex-wrap justify-between items-center gap-2 text-xs text-slate-500 font-mono pt-1 pb-1">
                 <div className="flex items-center gap-2">
-                  <span>Encontrados: <strong className="text-slate-800 font-bold">{filteredProducts.length}</strong> repuestos</span>
-                  {filteredProducts.length > 0 && (
+                  <span>Encontrados: <strong className="text-slate-800 font-bold">{totalCount}</strong> repuestos</span>
+                  {totalCount > 0 && (
                     <span className="text-[11px] text-emerald-700 font-semibold bg-emerald-50 border border-emerald-200/60 px-2 py-0.5 rounded-md ml-1">
-                      Pág. {safeCurrentPage} de {totalPages}
+                      Pág. {currentPage} de {totalPages}
                     </span>
                   )}
                 </div>
@@ -688,7 +765,7 @@ export default function App() {
                   ))}
                 </div>
               </div>
-            ) : filteredProducts.length === 0 ? (
+            ) : products.length === 0 ? (
               <div className="py-16 text-center bg-white border border-slate-200 rounded-2xl max-w-xl mx-auto">
                 <HelpCircle className="w-12 h-12 mx-auto text-slate-400 mb-3" />
                 <h3 className="font-display font-extrabold text-base text-slate-900">Sin resultados en catálogo</h3>
@@ -705,9 +782,9 @@ export default function App() {
               </div>
             ) : (
               <div className="space-y-6">
-                {/* 10-15 Products Rendered for Current Page Only */}
+                {/* Products Rendered for Current Page Only */}
                 <div className={getGridColsClass()}>
-                  {pagedProducts.map(p => (
+                  {products.map(p => (
                     <ProductCard 
                       key={p.id} 
                       product={p} 
@@ -725,7 +802,7 @@ export default function App() {
                       {/* First Page */}
                       <button
                         onClick={() => handlePageChange(1)}
-                        disabled={safeCurrentPage === 1}
+                        disabled={currentPage === 1}
                         title="Primera página"
                         className="p-2 rounded-xl text-slate-500 hover:text-slate-900 hover:bg-slate-100 disabled:opacity-30 disabled:pointer-events-none transition-colors cursor-pointer"
                       >
@@ -734,8 +811,8 @@ export default function App() {
 
                       {/* Prev Page */}
                       <button
-                        onClick={() => handlePageChange(safeCurrentPage - 1)}
-                        disabled={safeCurrentPage === 1}
+                        onClick={() => handlePageChange(currentPage - 1)}
+                        disabled={currentPage === 1}
                         className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold text-slate-600 hover:text-slate-900 hover:bg-slate-100 disabled:opacity-30 disabled:pointer-events-none transition-colors cursor-pointer"
                       >
                         <ChevronLeft className="w-4 h-4" />
@@ -748,7 +825,7 @@ export default function App() {
                           .filter(page => {
                             if (totalPages <= 7) return true;
                             if (page === 1 || page === totalPages) return true;
-                            return Math.abs(page - safeCurrentPage) <= 1;
+                            return Math.abs(page - currentPage) <= 1;
                           })
                           .reduce<(number | string)[]>((acc, page, idx, arr) => {
                             if (idx > 0 && typeof page === 'number' && typeof arr[idx - 1] === 'number') {
@@ -768,7 +845,7 @@ export default function App() {
                               );
                             }
                             const pageNum = item as number;
-                            const isActive = pageNum === safeCurrentPage;
+                            const isActive = pageNum === currentPage;
                             return (
                               <button
                                 key={pageNum}
@@ -787,8 +864,8 @@ export default function App() {
 
                       {/* Next Page */}
                       <button
-                        onClick={() => handlePageChange(safeCurrentPage + 1)}
-                        disabled={safeCurrentPage === totalPages}
+                        onClick={() => handlePageChange(currentPage + 1)}
+                        disabled={currentPage === totalPages}
                         className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold text-slate-600 hover:text-slate-900 hover:bg-slate-100 disabled:opacity-30 disabled:pointer-events-none transition-colors cursor-pointer"
                       >
                         <span className="hidden sm:inline">Siguiente</span>
@@ -798,7 +875,7 @@ export default function App() {
                       {/* Last Page */}
                       <button
                         onClick={() => handlePageChange(totalPages)}
-                        disabled={safeCurrentPage === totalPages}
+                        disabled={currentPage === totalPages}
                         title="Última página"
                         className="p-2 rounded-xl text-slate-500 hover:text-slate-900 hover:bg-slate-100 disabled:opacity-30 disabled:pointer-events-none transition-colors cursor-pointer"
                       >
@@ -807,7 +884,7 @@ export default function App() {
                     </nav>
 
                     <div className="text-center font-mono text-[11px] text-slate-400">
-                      Mostrando repuestos <strong className="text-slate-700">{filteredProducts.length === 0 ? 0 : startIndex + 1}</strong> al <strong className="text-slate-700">{endIndex}</strong> de <strong className="text-slate-800">{filteredProducts.length}</strong> ({pageSize} por página)
+                      Mostrando repuestos <strong className="text-slate-700">{totalCount === 0 ? 0 : (currentPage - 1) * pageSize + 1}</strong> al <strong className="text-slate-700">{Math.min(currentPage * pageSize, totalCount)}</strong> de <strong className="text-slate-800">{totalCount}</strong> ({pageSize} por página)
                     </div>
                   </div>
                 )}
@@ -1117,7 +1194,7 @@ export default function App() {
             setIsCartCheckoutOpen(false);
             setCart([]); // Clear the shopping cart
             refreshLocalHistory();
-            getProducts().then(setProducts);
+            fetchCurrentPage();
           }} 
         />
       )}

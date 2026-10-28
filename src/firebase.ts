@@ -1,6 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import { 
-  initializeFirestore, 
+  getFirestore, 
   collection, 
   getDocs, 
   addDoc, 
@@ -15,7 +15,7 @@ import {
   where,
   orderBy,
   limit as firestoreLimit,
-  startAfter,
+  getCountFromServer,
   DocumentSnapshot
 } from 'firebase/firestore';
 import { Product, Order, StoreConfig, Quotation } from './types';
@@ -33,10 +33,8 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 
-// Use auto-detect long polling to prevent WebChannel stream 404/Listen transport errors and memory leaks in browser extensions
-export const db = initializeFirestore(app, {
-  experimentalAutoDetectLongPolling: true
-});
+// Initialize standard Firestore client for fast web streaming without auto-detect probe latency
+export const db = getFirestore(app);
 
 // Cache for products to enable fast client/admin pagination without redundant network roundtrips
 let cachedProducts: Product[] | null = null;
@@ -74,53 +72,171 @@ export async function getProducts(forceRefresh = false): Promise<Product[]> {
   }
 }
 
-export async function getProductsPaged(
-  limitSize: number = 50,
-  startAfterDoc: DocumentSnapshot | null = null,
-  category?: string,
-  status?: string
-): Promise<{ products: Product[]; lastDoc: DocumentSnapshot | null; hasMore: boolean }> {
+export interface PagedProductsParams {
+  page: number; // 1-indexed
+  pageSize?: number; // default 10
+  category?: string;
+  status?: string;
+  searchQuery?: string;
+}
+
+export interface PagedProductsResponse {
+  products: Product[];
+  totalCount: number;
+  totalPages: number;
+  currentPage: number;
+}
+
+/**
+ * Loads products from Firestore strictly by pages of 10 items (or configured pageSize).
+ * Executes counts on the backend and streams only the requested page's documents to maximize speed.
+ */
+export async function getProductsPagedFromDB(params: PagedProductsParams): Promise<PagedProductsResponse> {
+  const { page = 1, pageSize = 10, category, status, searchQuery } = params;
+
   try {
+    const cleanSearch = (searchQuery || '').trim();
+
+    // 1. If text search is active, execute database search matching code, name, description
+    if (cleanSearch) {
+      const upper = cleanSearch.toUpperCase();
+      const cap = cleanSearch.charAt(0).toUpperCase() + cleanSearch.slice(1).toLowerCase();
+      const qLower = cleanSearch.toLowerCase();
+      const foundMap = new Map<string, Product>();
+
+      // Target query A: Code match
+      try {
+        const qCode = query(collection(db, 'products'), where('code', '==', upper), firestoreLimit(pageSize));
+        const snapCode = await getDocs(qCode);
+        snapCode.docs.forEach(d => foundMap.set(d.id, { id: d.id, ...d.data() } as Product));
+      } catch (err) {
+        console.warn('Code search query:', err);
+      }
+
+      // Target query B: Name prefix match (uppercase)
+      try {
+        const qUpper = query(
+          collection(db, 'products'),
+          where('name', '>=', upper),
+          where('name', '<=', upper + '\uf8ff'),
+          firestoreLimit(pageSize)
+        );
+        const snapUpper = await getDocs(qUpper);
+        snapUpper.docs.forEach(d => foundMap.set(d.id, { id: d.id, ...d.data() } as Product));
+      } catch (err) {
+        console.warn('Name prefix upper query:', err);
+      }
+
+      // Target query C: Name prefix match (capitalized)
+      try {
+        const qCap = query(
+          collection(db, 'products'),
+          where('name', '>=', cap),
+          where('name', '<=', cap + '\uf8ff'),
+          firestoreLimit(pageSize)
+        );
+        const snapCap = await getDocs(qCap);
+        snapCap.docs.forEach(d => foundMap.set(d.id, { id: d.id, ...d.data() } as Product));
+      } catch (err) {
+        console.warn('Name prefix cap query:', err);
+      }
+
+      let allResults = Array.from(foundMap.values());
+
+      // If fewer than pageSize results, perform fast fallback across products for mid-string or description matching
+      if (allResults.length < pageSize) {
+        try {
+          const allItems = await getProducts();
+          const fallback: Product[] = [];
+          allItems.forEach(data => {
+            if (!data.id || foundMap.has(data.id)) return;
+            const n = (data.name || '').toLowerCase();
+            const c = (data.code || '').toLowerCase();
+            const desc = (data.description || '').toLowerCase();
+            const b = (data.brand || '').toLowerCase();
+            if (n.includes(qLower) || c.includes(qLower) || desc.includes(qLower) || b.includes(qLower)) {
+              fallback.push(data);
+            }
+          });
+          allResults = [...allResults, ...fallback];
+        } catch (err) {
+          console.warn('Fallback search query:', err);
+        }
+      }
+
+      // Filter by category if specified
+      if (category && category !== 'Todos') {
+        allResults = allResults.filter(p => p.category === category || (p.category && p.category.toLowerCase().trim() === category.toLowerCase().trim()));
+      }
+
+      // Filter by status if specified
+      if (status && status !== 'Todos' && status !== 'MasVendidos') {
+        allResults = allResults.filter(p => p.status === status);
+      } else if (status === 'MasVendidos') {
+        allResults = allResults.filter(p => p.sales !== undefined && p.sales > 0);
+      }
+
+      // Never show 'Agotado' items in public customer catalog
+      allResults = allResults.filter(p => p.status !== 'Agotado');
+
+      const totalCount = allResults.length;
+      const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
+      const pageProducts = allResults.slice((page - 1) * pageSize, page * pageSize);
+
+      return {
+        products: pageProducts,
+        totalCount,
+        totalPages,
+        currentPage: page
+      };
+    }
+
+    // 2. Direct database pagination with limit(pageSize)
     const constraints: any[] = [];
-    
     if (category && category !== 'Todos') {
       constraints.push(where('category', '==', category));
     }
-    
     if (status && status !== 'Todos' && status !== 'MasVendidos') {
       constraints.push(where('status', '==', status));
     } else if (status === 'MasVendidos') {
       constraints.push(where('sales', '>', 0));
     }
-    
-    // Default alphabetical sorting of products
-    constraints.push(orderBy(status === 'MasVendidos' ? 'sales' : 'name'));
-    
-    if (startAfterDoc) {
-      constraints.push(startAfter(startAfterDoc));
+
+    // Backend count calculation without downloading document bodies
+    const countQuery = query(collection(db, 'products'), ...constraints);
+    const countSnap = await getCountFromServer(countQuery);
+    const totalCount = countSnap.data().count;
+    const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
+
+    // Order alphabetically by name only when not filtering by category or status to avoid composite index requirements
+    const queryConstraints = [...constraints];
+    if ((!category || category === 'Todos') && (!status || status === 'Todos')) {
+      queryConstraints.push(orderBy('name'));
     }
-    
-    constraints.push(firestoreLimit(limitSize));
-    
-    const q = query(collection(db, 'products'), ...constraints);
-    const querySnapshot = await getDocs(q);
-    
-    const products: Product[] = [];
-    querySnapshot.forEach((docSnap) => {
-      products.push({ id: docSnap.id, ...docSnap.data() } as Product);
-    });
-    
-    const lastDoc = querySnapshot.docs[querySnapshot.docs.length - 1] || null;
-    const hasMore = querySnapshot.docs.length === limitSize;
-    
+
+    // Load only the documents needed for this page
+    const fetchLimit = Math.min(page * pageSize, totalCount > 0 ? totalCount : pageSize);
+    const pageQuery = query(collection(db, 'products'), ...queryConstraints, firestoreLimit(fetchLimit));
+    const snap = await getDocs(pageQuery);
+
+    const allDocs = snap.docs;
+    const pageDocs = allDocs.slice((page - 1) * pageSize, page * pageSize);
+    const products: Product[] = pageDocs.map(d => ({ id: d.id, ...d.data() } as Product));
+
     return {
       products,
-      lastDoc,
-      hasMore
+      totalCount,
+      totalPages,
+      currentPage: page
     };
   } catch (error) {
-    console.error("Error getting paged products from Firestore:", error);
-    return { products: [], lastDoc: null, hasMore: false };
+    console.error("Error in getProductsPagedFromDB:", error);
+    return {
+      products: [],
+      totalCount: 0,
+      totalPages: 1,
+      currentPage: 1
+    };
   }
 }
 
